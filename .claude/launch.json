@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "E:\\DATA\\DESKTOP\\retailgrid\\RetailGrid ERP\\.tools\\node.exe",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--port", "5180"],
+      "cwd": "E:\\DATA\\DESKTOP\\whatslocal2.0\\apps\\web",
+      "port": 5180
+    }
+  ]
+}

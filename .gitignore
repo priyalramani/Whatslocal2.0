@@ -7,6 +7,11 @@ build/
 .env.local
 .DS_Store
 
+# Deploy artifacts (tarballs scp'd to prod) — build output, never source.
+*.tgz
+# Ad-hoc DB/debug scripts run from apps/backend during a session.
+apps/backend/_*.cjs
+
 # Local-only secrets — never commit (VAPID private key, etc.)
 SECRETS.local.md
 **/SECRETS.local.md

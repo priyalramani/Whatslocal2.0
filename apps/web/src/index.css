@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+  /* Native pull-to-refresh stays ON at the page level — it's a familiar gesture
+     and the app feels wrong without it. */
+}
+/* …but an inner scroller must NOT chain its overscroll up to the page. That
+   chaining was the real cause of the accidental refresh: pulling down at the top
+   of a category grid / rail / sheet passed the gesture to the viewport, which
+   refreshed. `contain` keeps the gesture inside the list, so scrolling back to
+   the top of a list never reloads — while pull-to-refresh still works on pages
+   that scroll normally (Home, listing detail).
+
+   CONTAIN ONE AXIS AT A TIME. The shorthand `overscroll-behavior: contain` sets
+   BOTH axes, which on a horizontal rail meant a vertical drag started on a card
+   was swallowed: the rail can't scroll vertically, and `contain` forbade handing
+   the gesture to the page — so the page simply wouldn't scroll under your
+   finger. Rails contain sideways only; vertical lists contain downward only.
+
+   Order matters: the horizontal rule sets y back to `auto`, so it must come
+   FIRST for a container that scrolls both ways to still end up y-contained. */
+[class*="overflow-x-auto"] {
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
+}
+[class*="overflow-y-auto"], [class*="overflow-auto"] {
+  overscroll-behavior-y: contain;
+}
+body {
+  margin: 0;
+  background: #e2e8f0;
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* App feel: no browser pull-to-refresh / scroll-chaining (swiping a bottom
+     sheet down must not reload the page). */
+  overscroll-behavior-y: none;
+}
+
+/* Hide horizontal scrollbar on the category chips etc. */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Bottom-sheet slide-up (comments drawer, Instagram-style). */
+@keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.animate-sheet-up { animation: sheetUp .22s cubic-bezier(.32,.72,0,1); }
+
+/* Home header rotating tagline — vertical flip in. */
+@keyframes flipIn { from { transform: translateY(70%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.flip-in { animation: flipIn .4s cubic-bezier(.32,.72,0,1); }

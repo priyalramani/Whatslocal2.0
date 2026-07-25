@@ -1,0 +1,14 @@
+# Normalise line endings across the team (Windows + Mac/Linux) so CRLF/LF
+# differences never show up as spurious diffs. Text files are stored LF in the
+# repo and checked out native; binary assets are left untouched.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
