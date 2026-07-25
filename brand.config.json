@@ -1,0 +1,13 @@
+{
+  "$comment": "SINGLE SOURCE OF TRUTH for the project/brand name. Change it HERE and everything (backend, frontend, docs, deploy) follows. Nothing else should hardcode the name.",
+  "key": "whatslocal",
+  "displayName": "WhatsLocal",
+  "tagline": "",
+  "domain": null,
+  "domainStatus": "not-purchased-but-available",
+  "db": {
+    "name": "whatslocal2_0",
+    "cluster": "retailgrid0.vzpoiol.mongodb.net",
+    "note": "Shares RG ERP's Atlas cluster; own database, isolated from RetailGridDB."
+  }
+}

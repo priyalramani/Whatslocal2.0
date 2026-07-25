@@ -1,0 +1,158 @@
+(node:20980) [MONGOOSE] Warning: Duplicate schema index on {"slug":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[32m[Nest] 20980  - [39m07/17/2026, 9:30:25 AM [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:30:25 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mMongooseModule dependencies initialized[39m[38;5;3m +130ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:30:25 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mThrottlerModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:30:25 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mJwtModule dependencies initialized[39m[38;5;3m +0ms[39m
+[31m[Nest] 20980  - [39m07/17/2026, 9:30:55 AM [31m  ERROR[39m [38;5;3m[MongooseModule] [39m[31mUnable to connect to the database. Retrying (1)...[39m
+MongooseServerSelectionError: Could not connect to any servers in your MongoDB Atlas cluster. One common reason is that you're trying to access the database from an IP that isn't whitelisted. Make sure your current IP address is on your Atlas cluster's IP whitelist: https://www.mongodb.com/docs/atlas/security-whitelist/
+    at _handleConnectionErrors (E:\DATA\DESKTOP\whatslocal2.0\node_modules\.pnpm\mongoose@8.24.0\node_modules\mongoose\lib\connection.js:1169:11)
+    at NativeConnection.asPromise (E:\DATA\DESKTOP\whatslocal2.0\node_modules\.pnpm\mongoose@8.24.0\node_modules\mongoose\lib\connection.js:1639:11)
+    at async E:\DATA\DESKTOP\whatslocal2.0\node_modules\.pnpm\@nestjs+mongoose@10.1.0_@ne_68ccb7ae316dbc658ac59cc43fb4d460\node_modules\@nestjs\mongoose\dist\mongoose-core.module.js:40:125
+[31m[Nest] 20980  - [39m07/17/2026, 9:31:28 AM [31m  ERROR[39m [38;5;3m[MongooseModule] [39m[31mUnable to connect to the database. Retrying (2)...[39m
+MongooseServerSelectionError: Could not connect to any servers in your MongoDB Atlas cluster. One common reason is that you're trying to access the database from an IP that isn't whitelisted. Make sure your current IP address is on your Atlas cluster's IP whitelist: https://www.mongodb.com/docs/atlas/security-whitelist/
+    at _handleConnectionErrors (E:\DATA\DESKTOP\whatslocal2.0\node_modules\.pnpm\mongoose@8.24.0\node_modules\mongoose\lib\connection.js:1169:11)
+    at NativeConnection.asPromise (E:\DATA\DESKTOP\whatslocal2.0\node_modules\.pnpm\mongoose@8.24.0\node_modules\mongoose\lib\connection.js:1639:11)
+    at async E:\DATA\DESKTOP\whatslocal2.0\node_modules\.pnpm\@nestjs+mongoose@10.1.0_@ne_68ccb7ae316dbc658ac59cc43fb4d460\node_modules\@nestjs\mongoose\dist\mongoose-core.module.js:40:125
+[31m[Nest] 20980  - [39m07/17/2026, 9:32:01 AM [31m  ERROR[39m [38;5;3m[MongooseModule] [39m[31mUnable to connect to the database. Retrying (3)...[39m
+MongooseServerSelectionError: Could not connect to any servers in your MongoDB Atlas cluster. One common reason is that you're trying to access the database from an IP that isn't whitelisted. Make sure your current IP address is on your Atlas cluster's IP whitelist: https://www.mongodb.com/docs/atlas/security-whitelist/
+    at _handleConnectionErrors (E:\DATA\DESKTOP\whatslocal2.0\node_modules\.pnpm\mongoose@8.24.0\node_modules\mongoose\lib\connection.js:1169:11)
+    at NativeConnection.asPromise (E:\DATA\DESKTOP\whatslocal2.0\node_modules\.pnpm\mongoose@8.24.0\node_modules\mongoose\lib\connection.js:1639:11)
+    at async E:\DATA\DESKTOP\whatslocal2.0\node_modules\.pnpm\@nestjs+mongoose@10.1.0_@ne_68ccb7ae316dbc658ac59cc43fb4d460\node_modules\@nestjs\mongoose\dist\mongoose-core.module.js:40:125
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mMongooseCoreModule dependencies initialized[39m[38;5;3m +18827ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAppModule dependencies initialized[39m[38;5;3m +51ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mMongooseModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mMongooseModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mMongooseModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mMongooseModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mMongooseModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mMongooseModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mMongooseModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mUtilityModule dependencies initialized[39m[38;5;3m +5ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTagsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPushModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAuthModule dependencies initialized[39m[38;5;3m +2ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAnalyticsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mComplaintsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mListingsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mHealthController {/api/v1}:[39m[38;5;3m +23ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/health, GET} route[39m[38;5;3m +6ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/config, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAuthController {/api/v1/auth}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/auth/login, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/auth/otp/request, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/auth/otp/verify, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/auth/otp/widget-verify, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/auth/number/verify, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/auth/number/widget-verify, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/auth/me, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/auth/me/name, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mUtilityController {/api/v1/utility}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/utility/pin-lookup/:pin, GET} route[39m[38;5;3m +3ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAnalyticsController {/api/v1}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/events, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/events/identify, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/events/affinity, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/stats/trending, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/stats/visitors-today, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/stats/postings, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/analytics/summary, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/analytics/visitors, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/analytics/visitors/:visitorId, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/analytics/leads, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/analytics/registered-users, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/analytics/posts, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mTagsController {/api/v1}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/tags, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mListingsController {/api/v1}:[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/listings, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/listings/upload, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/listings/search, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/home/sections, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/listings/offers, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/listings/new, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/listings/vertical-counts, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/listings/categories, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/listings/mine, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/listings/check-duplicate, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/listings/:id/active, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/listings/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/og, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/og/img, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/listings/by-slug/:slug, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/listings/:id/full, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/listings/:id, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/listings/:id/report, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/listings/:id/reveal, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/listings, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/listings/pending, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/listings/pending/count, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/listings/browse, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/listings/:id/active, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/listings/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/listings/:id, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/listings/:id/approve, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/listings/:id/reject, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/home-sequence, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/home-sequence, PUT} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/settings/login-gate, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/login-gate, PUT} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/reports, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/reports/:listingId/action, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mPushController {/api/v1}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/push/vapid-key, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/push/subscribe, POST} route[39m[38;5;3m +2ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/push/unsubscribe, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/push/link, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mComplaintsController {/api/v1}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/wards, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/ward/:id, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/bodies, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/bodies/by-pincode/:pin, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/agencies, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/complaints, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/complaints/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/complaints, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/complaints-mine, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/complaints/:id/comments, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/complaints/:id/like, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/complaints/:id/share, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/complaints/:id/resolve, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/complaints/:id/dispute, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/complaints/:id/status, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/wards, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/wards, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/bodies, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/bodies, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/complaints/pending/count, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/complaints/pending, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/complaints/comments/pending, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/complaints/:id/approve, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/complaints/:id/reject, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/complaints/:id/status, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/complaints/comments/:cid/approve, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:32:20 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/admin/complaints/comments/:cid/reject, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 20980  - [39m07/17/2026, 9:34:09 AM [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +108241ms[39m
+[31m[Nest] 20980  - [39m07/17/2026, 9:34:09 AM [31m  ERROR[39m [38;5;3m[NestApplication] [39m[31mError: listen EADDRINUSE: address already in use :::9100[39m[38;5;3m +58ms[39m
+node:net:1940
+    const ex = new UVExceptionWithHostPort(err, 'listen', address, port);
+               ^
+
+Error: listen EADDRINUSE: address already in use :::9100
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at Server.listen (node:net:2102:7)
+    at ExpressAdapter.listen (E:\DATA\DESKTOP\whatslocal2.0\node_modules\.pnpm\@nestjs+platform-express@10_795a7c87fa3e5cd6ba081ef20e3755d8\node_modules\@nestjs\platform-express\adapters\express-adapter.js:95:32)
+    at E:\DATA\DESKTOP\whatslocal2.0\node_modules\.pnpm\@nestjs+core@10.4.22_@nestj_558ae3c7cf983d845eb445c3b6d17e96\node_modules\@nestjs\core\nest-application.js:183:30
+    at new Promise (<anonymous>)
+    at NestApplication.listen (E:\DATA\DESKTOP\whatslocal2.0\node_modules\.pnpm\@nestjs+core@10.4.22_@nestj_558ae3c7cf983d845eb445c3b6d17e96\node_modules\@nestjs\core\nest-application.js:173:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async bootstrap (E:\DATA\DESKTOP\whatslocal2.0\apps\backend\dist\main.js:67:5) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 9100
+}
+
+Node.js v22.22.3

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+.turbo/
+*.log
+.env
+.env.local
+.DS_Store
+
+# Local-only secrets — never commit (VAPID private key, etc.)
+SECRETS.local.md
+**/SECRETS.local.md

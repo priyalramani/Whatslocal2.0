@@ -1,0 +1,18 @@
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m2312[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5180[22m/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2m11:03:19 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/user/CategoryBrowse.tsx, /src/index.css[22m
+[2m11:08:07 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/user/LoginGate.tsx, /src/user/Home.tsx, /src/user/MyPosts.tsx, /src/user/FeedPage.tsx, /src/user/CategoryListing.tsx, /src/user/CategoryPage.tsx, /src/user/CategoryBrowse.tsx, /src/user/ListingDetail.tsx, /src/user/Post.tsx, /src/admin/AdminReports.tsx, /src/user/HomeFeed.tsx, /src/admin/AdminPosts.tsx, /src/admin/AdminSequence.tsx, /src/admin/AdminApprovals.tsx, /src/admin/AdminRegistered.tsx, /src/admin/AdminLayout.tsx, /src/admin/LoginLimits.tsx[22m
+[2m11:08:33 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/user/CategoryBrowse.tsx, /src/index.css[22m
+[2m11:08:44 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/user/CategoryBrowse.tsx, /src/index.css[22m
+[2m11:09:01 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/user/CategoryBrowse.tsx, /src/index.css[22m
+[2m11:09:12 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/user/CategoryBrowse.tsx, /src/index.css[22m
+[2m11:09:25 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/user/CategoryBrowse.tsx, /src/index.css[22m
+[2m11:09:53 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/user/CategoryBrowse.tsx, /src/index.css[22m
+[2m11:12:06 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/user/Home.tsx, /src/user/CategoryPage.tsx, /src/user/CategoryBrowse.tsx, /src/user/ListingDetail.tsx, /src/user/Post.tsx, /src/user/ListingCard.tsx[22m
+[2m11:51:24 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/user/LoginGate.tsx, /src/user/Home.tsx, /src/user/MyPosts.tsx, /src/user/FeedPage.tsx, /src/user/CategoryListing.tsx, /src/user/CategoryPage.tsx, /src/user/CategoryBrowse.tsx, /src/user/ListingDetail.tsx, /src/user/Post.tsx, /src/admin/AdminReports.tsx, /src/user/HomeFeed.tsx, /src/admin/AdminPosts.tsx, /src/admin/AdminSequence.tsx, /src/admin/AdminApprovals.tsx, /src/admin/AdminRegistered.tsx, /src/admin/AdminLayout.tsx, /src/admin/LoginLimits.tsx[22m
+[2m11:51:31 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/user/CategoryBrowse.tsx, /src/index.css[22m
+[2m11:51:36 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/user/CategoryBrowse.tsx, /src/index.css[22m
+[2m11:51:45 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/user/CategoryBrowse.tsx, /src/index.css[22m
