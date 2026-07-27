@@ -9,6 +9,8 @@ build/
 
 # Deploy artifacts (tarballs scp'd to prod) — build output, never source.
 *.tgz
+# TypeScript incremental build cache — regenerated on every build, pure churn.
+*.tsbuildinfo
 # Ad-hoc DB/debug scripts run from apps/backend during a session.
 apps/backend/_*.cjs
 

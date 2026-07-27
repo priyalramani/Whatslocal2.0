@@ -23,6 +23,7 @@ import { FeedPage } from './user/FeedPage';
 import { CategoryBrowse } from './user/CategoryBrowse';
 import { Cabs } from './user/Cabs';
 import { AdminApp } from './admin/AdminApp';
+import { WebsiteHome, WebsitePrivacy, WebsiteTerms } from './website/Website';
 
 // One dynamic segment under /:city does double duty: a known kind slug
 // (job-opening, business, …) is a category page; anything else is a listing
@@ -53,10 +54,24 @@ function RouteTracker() {
   return null;
 }
 
-export function App() {
+// The public marketing + legal site at /website is a STANDALONE site — full
+// width, its own header/footer, and deliberately none of the app's global hosts
+// (language gate, login popup, push/post prompts, mobile frame) rendered over
+// it. So it's split out here before the app shell mounts.
+function AppBody() {
+  const loc = useLocation();
+  if (loc.pathname === '/website' || loc.pathname.startsWith('/website/')) {
+    return (
+      <Routes>
+        <Route path="/website" element={<WebsiteHome />} />
+        <Route path="/website/privacy" element={<WebsitePrivacy />} />
+        <Route path="/website/terms" element={<WebsiteTerms />} />
+        <Route path="/website/*" element={<Navigate to="/website" replace />} />
+      </Routes>
+    );
+  }
   return (
-    <LangProvider>
-    <BrowserRouter>
+    <>
       <LanguageGate />
       <LoginGate />
       <PushHost />
@@ -90,6 +105,15 @@ export function App() {
         <Route path="/:city/:kind" element={<CityChild />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+    </>
+  );
+}
+
+export function App() {
+  return (
+    <LangProvider>
+    <BrowserRouter>
+      <AppBody />
     </BrowserRouter>
     </LangProvider>
   );
