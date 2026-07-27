@@ -16,7 +16,7 @@ import { Link } from 'react-router-dom';
 // is called out in FILL_BEFORE_META below; keep this block the single source. ──
 const BRAND = 'WhatsLocal';
 const COMPANY = 'Retail Grid Solutions Pvt. Ltd.';
-const SUPPORT_EMAIL = 'hello@btgondia.com';
+const SUPPORT_EMAIL = 'hello@retailgrid.in';
 const SITE_URL = 'https://whatslocal.in';
 const LOCATION = 'Gondia, Maharashtra, India';
 const UPDATED = '27 July 2026';
