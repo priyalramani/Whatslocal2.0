@@ -5,8 +5,8 @@ import { useT } from '../lib/i18n';
 import { useSmartBack } from '../lib/useSmartBack';
 import { currentSession } from '../lib/userAuth';
 import {
-  searchTrips, tripRoutes, myTrips, createTrip, repostTrip,
-  istToday, VEHICLES, type Trip, type MyTrip,
+  searchTrips, tripRoutes, createTrip,
+  istToday, VEHICLES, type Trip,
 } from '../lib/trips';
 import { BottomNav } from './BottomNav';
 import { BRAND } from '../lib/brand';
@@ -38,8 +38,6 @@ export function Cabs() {
   const [date, setDate] = useState(istToday());
   const [routes, setRoutes] = useState<{ from: string[]; to: string[] }>({ from: [], to: [] });
   const [rows, setRows] = useState<Trip[] | null>(null);
-  const [tab, setTab] = useState<'find' | 'mine'>('find');
-  const [mine, setMine] = useState<MyTrip[] | null>(null);
   const [post, setPost] = useState(false);
   const [login, setLogin] = useState(false);
   const [toast, setToast] = useState('');
@@ -49,8 +47,6 @@ export function Cabs() {
   // Re-search whenever the route/date changes — and remember the route, so the
   // next visit opens straight on it.
   useEffect(() => { load(); saveRoute(from, to); }, [from, to, date]); // eslint-disable-line
-  const loadMine = () => myTrips().then((r) => setMine(r.results)).catch(() => setMine([]));
-  useEffect(() => { if (tab === 'mine') loadMine(); }, [tab]);
 
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2200); };
   // Remember what the user was trying to do, and RESUME it after login —
@@ -94,40 +90,14 @@ export function Cabs() {
           <DateCell value={date} min={istToday()} onChange={setDate} className={`mt-2 w-full ${sel}`} />
         </header>
 
-        <div className="flex gap-1 px-4 pt-3 shrink-0">
-          {(['find', 'mine'] as const).map((k) => (
-            <button key={k} onClick={() => (k === 'mine' ? needLogin(() => setTab('mine')) : setTab('find'))}
-              className={`flex-1 rounded-lg py-2 text-[13px] font-medium ${tab === k ? 'bg-brand text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>
-              {k === 'find' ? t('cab.find') : t('cab.mine')}
-            </button>
-          ))}
-        </div>
-
         <main className="flex-1 px-4 py-3 pb-28 space-y-2.5">
-          {tab === 'find' && rows === null && <div className="text-center text-slate-400 text-sm py-10">{t('common.loading')}</div>}
-          {tab === 'find' && rows && rows.length === 0 && (
+          {rows === null && <div className="text-center text-slate-400 text-sm py-10">{t('common.loading')}</div>}
+          {rows && rows.length === 0 && (
             <div className="text-center py-14"><div className="text-3xl mb-2">🚕</div>
               <div className="text-slate-400 text-sm">{t('cab.none')}</div></div>
           )}
-          {tab === 'find' && rows?.map((r) => (
+          {rows?.map((r) => (
             <TripCard key={r._id} tr={r} t={t} fmtTime={fmtTime} fmtDate={fmtDate} />
-          ))}
-
-          {tab === 'mine' && mine === null && <div className="text-center text-slate-400 text-sm py-10">{t('common.loading')}</div>}
-          {tab === 'mine' && mine?.length === 0 && <div className="text-center text-slate-400 text-sm py-10">{t('cab.none')}</div>}
-          {tab === 'mine' && mine?.map((r) => (
-            <div key={r._id} className={`rounded-2xl bg-white border border-slate-100 shadow-card p-3 ${r.expired ? 'opacity-60' : ''}`}>
-              <div className="flex items-center justify-between gap-2">
-                <div className="font-semibold text-slate-900 text-[15px]">{r.from_city} → {r.to_city}</div>
-                {r.expired && <span className="text-[10px] bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">{t('cab.expired')}</span>}
-              </div>
-              <div className="text-[12px] text-slate-500 mt-0.5">{fmtDate(r.date)} · {fmtTime(r.time_from, r.time_to)}</div>
-              <button
-                onClick={() => repostTrip(r._id, { date: istToday() }).then(() => { flash(t('cab.repostedFor', { d: fmtDate(istToday()) })); loadMine(); load(); }).catch(() => {})}
-                className="mt-2.5 w-full rounded-lg border border-brand text-brand text-sm font-medium py-2">
-                ↻ {t('cab.repost')}
-              </button>
-            </div>
           ))}
         </main>
 
