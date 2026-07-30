@@ -24,17 +24,39 @@ export function AdminLayout() {
   const [reports, setReports] = useState(0);
   const [cmp, setCmp] = useState(0);
   const [limits, setLimits] = useState(false);
+  // Mobile drawer. The sidebar is fixed-width and never collapsed before — on a
+  // phone it ate ~240px of a ~390px screen, so every content page (esp. the wide
+  // Posts table) was squeezed into a sliver AND the page itself scrolled sideways,
+  // which stole the horizontal-swipe gesture from the table's own scroller. On
+  // mobile the sidebar is now an off-canvas drawer and content gets full width,
+  // so the page no longer scrolls sideways and the table scrolls on its own.
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     pendingCount().then((r) => setPending(r.count)).catch(() => {});
     complaintsPendingCount().then((r) => setCmp(r.total)).catch(() => {});
     adminReports().then((r) => setReports(Array.isArray(r) ? r.length : 0)).catch(() => {});
+    setMenuOpen(false);   // close the drawer whenever the route changes
   }, [loc.pathname]);
 
   return (
-    <div className="min-h-screen flex bg-slate-100">
-      <aside className="w-60 shrink-0 bg-white border-r border-slate-200 flex flex-col sticky top-0 h-screen">
-        <div className="px-4 py-4 font-bold text-slate-800 border-b border-slate-100">{BRAND.displayName} <span className="text-slate-400 font-normal">· Admin</span></div>
+    <div className="min-h-screen md:flex bg-slate-100">
+      {/* Mobile top bar — the only way to reach the drawer on a phone. */}
+      <div className="md:hidden sticky top-0 z-30 flex items-center gap-3 bg-white border-b border-slate-200 px-4 h-14">
+        <button onClick={() => setMenuOpen(true)} aria-label="Open menu" className="text-slate-600 -ml-1 p-1">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
+        </button>
+        <span className="font-bold text-slate-800">{BRAND.displayName} <span className="text-slate-400 font-normal">· Admin</span></span>
+      </div>
+
+      {/* Drawer backdrop (mobile, open only) */}
+      {menuOpen && <div className="md:hidden fixed inset-0 z-40 bg-black/40" onClick={() => setMenuOpen(false)} />}
+
+      <aside className={`w-60 shrink-0 bg-white border-r border-slate-200 flex flex-col h-screen top-0 z-50 fixed md:sticky transition-transform duration-200 ${menuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+        <div className="px-4 py-4 font-bold text-slate-800 border-b border-slate-100 flex items-center justify-between">
+          <span>{BRAND.displayName} <span className="text-slate-400 font-normal">· Admin</span></span>
+          <button onClick={() => setMenuOpen(false)} aria-label="Close menu" className="md:hidden text-slate-400 hover:text-slate-700 text-lg leading-none">✕</button>
+        </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5">
           <NavLink to="/admin" end className={itemCls}>Dashboard</NavLink>
