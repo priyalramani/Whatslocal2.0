@@ -11,6 +11,7 @@ import { ListingsModule } from './listings/listings.module';
 import { PushModule } from './push/push.module';
 import { ComplaintsModule } from './complaints/complaints.module';
 import { TripsModule } from './trips/trips.module';
+import { ProfileModule } from './profile/profile.module';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
@@ -34,6 +35,7 @@ if (!MONGODB_URI) {
     PushModule,
     ComplaintsModule,
     TripsModule,
+    ProfileModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

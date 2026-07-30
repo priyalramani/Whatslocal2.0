@@ -7,6 +7,7 @@ import { LanguageGate } from './user/LanguageGate';
 import { LoginGate } from './user/LoginGate';
 import { PushHost } from './user/PushHost';
 import { PostPromptHost } from './user/PostPromptHost';
+import { GenderGate } from './user/GenderGate';
 import { ScrollMemory } from './lib/ScrollMemory';
 import { Home } from './user/Home';
 import { Post } from './user/Post';
@@ -76,6 +77,7 @@ function AppBody() {
       <LoginGate />
       <PushHost />
       <PostPromptHost />
+      <GenderGate />
       <ScrollMemory />
       <RouteTracker />
       <Routes>

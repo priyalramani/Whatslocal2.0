@@ -235,6 +235,12 @@ const S: Record<string, Entry> = {
     hi: 'नमस्ते 🙏 *{from} → {to}*, {date} को seat खाली है? आपकी trip {brand} {city} पर देखी।',
   },
   'search.showingFor': { en: 'Showing results for', hi: 'दिखा रहे हैं' },
+  // Gender prompt (compulsory, one-time).
+  'gender.title': { en: 'I am', hi: 'मैं हूँ' },
+  'gender.male': { en: 'Male', hi: 'पुरुष' },
+  'gender.female': { en: 'Female', hi: 'महिला' },
+  'gender.other': { en: 'Other', hi: 'अन्य' },
+  'gender.save': { en: 'Save', hi: 'सेव करें' },
   'detail.reportWhy': { en: 'Why are you reporting this?', hi: 'शिकायत का कारण क्या है?' },
   'detail.reportDetails': { en: 'Details (optional)', hi: 'जानकारी (वैकल्पिक)' },
   'detail.reported': { en: 'Reported ✓ — thank you.', hi: 'शिकायत मिल गई ✓ — धन्यवाद।' },

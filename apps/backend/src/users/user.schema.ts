@@ -28,6 +28,12 @@ export class User {
   // Admin can restrict a user (e.g. after abuse): blocks posting & reporting.
   @Prop({ default: false })
   blocked: boolean;
+
+  // Self-reported gender ('male' | 'female' | 'other'), collected once via the
+  // gender prompt. Mirrored from the per-device visitor_profiles row on save so
+  // it's a first-class account attribute. Empty = not yet answered.
+  @Prop({ default: '' })
+  gender: string;
 }
 
 export type UserDocument = User & Document;
