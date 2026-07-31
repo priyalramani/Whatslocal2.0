@@ -8,6 +8,7 @@ interface VisitorRow {
   identified: boolean;
   user_id: string | null;
   mobile: string | null;
+  gender: string;
   events: number;
   sessions: number;
   first_seen: string;
@@ -32,6 +33,18 @@ const incomePill: Record<string, string> = {
   Mid: 'bg-amber-100 text-amber-700',
   Low: 'bg-slate-100 text-slate-500',
 };
+
+// Self-reported gender (from the gender prompt). Empty = not answered yet.
+const GENDER: Record<string, { label: string; sym: string; cls: string }> = {
+  male: { label: 'Male', sym: '♂', cls: 'bg-blue-100 text-blue-700' },
+  female: { label: 'Female', sym: '♀', cls: 'bg-pink-100 text-pink-700' },
+  other: { label: 'Other', sym: '⚧', cls: 'bg-purple-100 text-purple-700' },
+};
+export function GenderPill({ g }: { g: string }) {
+  const m = GENDER[g];
+  if (!m) return <span className="text-slate-300">—</span>;
+  return <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${m.cls}`}>{m.sym} {m.label}</span>;
+}
 
 export function AdminVisitors() {
   const [data, setData] = useState<VisitorsResp | null>(null);
@@ -88,6 +101,7 @@ export function AdminVisitors() {
                   <th className="px-3 py-2 font-medium">Lang</th>
                   <th className="px-3 py-2 font-medium">Device</th>
                   <th className="px-3 py-2 font-medium">Phone</th>
+                  <th className="px-3 py-2 font-medium">Gender</th>
                   <th className="px-3 py-2 font-medium">Income</th>
                 </tr>
               </thead>
@@ -108,6 +122,7 @@ export function AdminVisitors() {
                     <td className="px-3 py-2 text-slate-600 uppercase">{r.langs.join('/') || '—'}</td>
                     <td className="px-3 py-2 text-slate-600 capitalize">{r.device || '—'}</td>
                     <td className="px-3 py-2 text-slate-600">{r.brand || '—'}</td>
+                    <td className="px-3 py-2"><GenderPill g={r.gender} /></td>
                     <td className="px-3 py-2">
                       <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${incomePill[r.income] || incomePill.Low}`}>
                         {r.income} · {r.income_score}
@@ -116,7 +131,7 @@ export function AdminVisitors() {
                   </tr>
                 ))}
                 {rows.length === 0 && (
-                  <tr><td colSpan={10} className="px-3 py-8 text-center text-slate-400">No visitors yet.</td></tr>
+                  <tr><td colSpan={11} className="px-3 py-8 text-center text-slate-400">No visitors yet.</td></tr>
                 )}
               </tbody>
             </table>

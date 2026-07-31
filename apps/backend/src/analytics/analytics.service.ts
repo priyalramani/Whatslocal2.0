@@ -5,6 +5,7 @@ import type { AnalyticsEventInput, AnalyticsSummary, DeviceInfo } from '@whatslo
 import { maskTitle } from '@whatslocal/types';
 import { AnalyticsEvent, AnalyticsEventDocument } from './analytics.schema';
 import { Listing, ListingDocument } from '../listings/listing.schema';
+import { VisitorProfile, VisitorProfileDocument } from '../profile/profile.schema';
 import { toPublic } from '../listings/listings.service';
 import { AuthService } from '../auth/auth.service';
 
@@ -56,8 +57,29 @@ export class AnalyticsService {
   constructor(
     @InjectModel(AnalyticsEvent.name) private readonly model: Model<AnalyticsEventDocument>,
     @InjectModel(Listing.name) private readonly listings: Model<ListingDocument>,
+    @InjectModel(VisitorProfile.name) private readonly profiles: Model<VisitorProfileDocument>,
     private readonly auth: AuthService,
   ) {}
+
+  // Gender lookup for the reports. Scoped to the ids on the report so it stays
+  // cheap. Returns two maps: by device (visitor_id) and by account (user_id) —
+  // a person's gender may be recorded under either, so callers check both.
+  private async genderMaps(visitorIds: string[], userIds: string[]) {
+    const byVisitor = new Map<string, string>();
+    const byUser = new Map<string, string>();
+    const or: any[] = [];
+    if (visitorIds.length) or.push({ visitor_id: { $in: visitorIds } });
+    if (userIds.length) or.push({ user_id: { $in: userIds } });
+    if (!or.length) return { byVisitor, byUser };
+    const profs = await this.profiles
+      .find({ $or: or, gender: { $ne: '' } }, { visitor_id: 1, user_id: 1, gender: 1, _id: 0 })
+      .lean();
+    for (const p of profs as any[]) {
+      if (p.visitor_id) byVisitor.set(String(p.visitor_id), p.gender);
+      if (p.user_id) byUser.set(String(p.user_id), p.gender);
+    }
+    return { byVisitor, byUser };
+  }
 
   async record(input: AnalyticsEventInput, device: DeviceInfo, ip: string): Promise<void> {
     await this.model.create({
@@ -218,6 +240,11 @@ export class AnalyticsService {
     const ownByUser: Record<string, any[]> = {};
     for (const l of own) { const k = String((l as any).posted_by_user_id); (ownByUser[k] = ownByUser[k] || []).push(l); }
 
+    // Gender by account, else any device the user has been seen on. (Renamed to
+    // avoid the events-by-user `byUser` map above.)
+    const allVids = [...new Set(events.map((e) => e.visitor_id).filter(Boolean).map(String))];
+    const { byVisitor: gByVisitor, byUser: gByUser } = await this.genderMaps(allVids, ids);
+
     const results = users.map((u) => {
       const evs = byUser[u.id] || [];
       const bySession: Record<string, number[]> = {};
@@ -254,10 +281,14 @@ export class AnalyticsService {
       const topBrand = Object.entries(brandCount).sort((a, b) => b[1] - a[1])[0]?.[0];
       const inc = incomeSignal({ os: topOs, brand: topBrand, lang: topLang === 'en' ? 'en' : 'hi', topLabel: topInterest || undefined });
       const first = evs[0];
+      const gender =
+        gByUser.get(u.id) ||
+        [...new Set(evs.map((e) => e.visitor_id).filter(Boolean))].map((v) => gByVisitor.get(String(v))).find(Boolean) || '';
 
       return {
         user_id: u.id,
         mobile: u.mobile,
+        gender,
         blocked: u.blocked,
         registered_at: u.created_at,
         first_seen: first ? first.ts : null,
@@ -564,6 +595,7 @@ export class AnalyticsService {
       $group: {
         _id: idKey,
         any_visitor: { $min: '$visitor_id' },   // a representative device id
+        visitor_ids: { $addToSet: '$visitor_id' },   // all their devices (for gender lookup)
         events: { $sum: 1 },
         sessions: { $addToSet: '$session_id' },
         first_seen: { $min: '$ts' },
@@ -591,17 +623,24 @@ export class AnalyticsService {
     const userIds = rows.map((r) => r.user_id).filter(Boolean) as string[];
     const brief = userIds.length ? await this.auth.briefByIds(userIds) : new Map();
     const clean = (arr: any[]) => (arr || []).filter((x) => x != null && x !== '');
+    // Gender: check the account first, else any of this person's devices.
+    const allVids = [...new Set(rows.flatMap((r) => clean(r.visitor_ids)).map(String))];
+    const { byVisitor, byUser } = await this.genderMaps(allVids, userIds);
 
     const items = rows.map((r) => {
       const langs = clean(r.langs);
       const brand = clean(r.brands)[0] || null;
       const inc = incomeSignal({ os: clean(r.oses)[0], brand: brand || undefined, lang: langs.includes('en') ? 'en' : 'hi' });
+      const gender =
+        (r.user_id && byUser.get(String(r.user_id))) ||
+        clean(r.visitor_ids).map((v: any) => byVisitor.get(String(v))).find(Boolean) || '';
       return {
         id: String(r._id),                       // group key (user_id or visitor_id) — for the drill-in link
         visitor_id: String(r.any_visitor),       // a representative device id (display)
         identified: !!r.user_id,
         user_id: r.user_id || null,
         mobile: r.user_id ? (brief.get(String(r.user_id))?.mobile || null) : null,
+        gender,
         events: r.events,
         sessions: (r.sessions || []).length,
         first_seen: r.first_seen,
