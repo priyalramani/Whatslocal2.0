@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Headers, HttpCode, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Post, Query, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ProfileService } from './profile.service';
 import { AuthService } from '../auth/auth.service';
+import { AdminGuard } from '../auth/guards';
 
 // Profile facts we collect from visitors (gender for now). Everything here works
 // ANONYMOUSLY — the value is stored against the device's visitor_id; the bearer
@@ -36,5 +37,19 @@ export class ProfileController {
   async setGender(@Body() body: { visitor_id?: string; gender?: string }, @Headers('authorization') authz: string) {
     const userId = await this.userIdFrom(authz);
     return this.profile.setGender(body?.visitor_id || '', body?.gender || '', userId);
+  }
+
+  // "Contact us" target — public read (the profile screen builds the wa.me link),
+  // admin-only write.
+  @Get('profile/contact')
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  getContact() {
+    return this.profile.getContact();
+  }
+
+  @Post('admin/contact-settings')
+  @UseGuards(AdminGuard)
+  setContact(@Body() body: { whatsapp?: string; message?: string }) {
+    return this.profile.setContact(body?.whatsapp || '', body?.message || '');
   }
 }

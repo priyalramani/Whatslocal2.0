@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { VisitorProfile, VisitorProfileDocument } from './profile.schema';
 import { User, UserDocument } from '../users/user.schema';
+import { AppConfig, AppConfigDocument } from '../listings/config.schema';
 
 export const GENDERS = ['male', 'female', 'other'];
 
@@ -11,7 +12,25 @@ export class ProfileService {
   constructor(
     @InjectModel(VisitorProfile.name) private readonly profiles: Model<VisitorProfileDocument>,
     @InjectModel(User.name) private readonly users: Model<UserDocument>,
+    @InjectModel(AppConfig.name) private readonly config: Model<AppConfigDocument>,
   ) {}
+
+  // "Contact us" target — an admin-set WhatsApp number + pre-typed message. The
+  // profile screen deep-links to wa.me with both. Stored in the shared app_config
+  // key/value store, same as the login-gate settings.
+  async getContact(): Promise<{ whatsapp: string; message: string }> {
+    const c = await this.config.findOne({ key: 'contact_us' }).lean();
+    const v: any = c?.value || {};
+    return { whatsapp: String(v.whatsapp || ''), message: String(v.message || '') };
+  }
+  async setContact(whatsapp: string, message: string): Promise<{ whatsapp: string; message: string }> {
+    const val = {
+      whatsapp: String(whatsapp || '').replace(/\D/g, '').slice(0, 15),   // digits only (may include country code)
+      message: String(message || '').trim().slice(0, 400),
+    };
+    await this.config.findOneAndUpdate({ key: 'contact_us' }, { value: val }, { upsert: true });
+    return val;
+  }
 
   // What we know about this person's gender ('' = unknown → the app prompts).
   // Logged in: check the account first (survives a new device), then this

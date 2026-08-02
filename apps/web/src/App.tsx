@@ -23,6 +23,7 @@ import { ComplaintDetail } from './user/complaints/ComplaintDetail';
 import { FeedPage } from './user/FeedPage';
 import { CategoryBrowse } from './user/CategoryBrowse';
 import { Cabs } from './user/Cabs';
+import { Profile } from './user/Profile';
 import { AdminApp } from './admin/AdminApp';
 import { WebsiteHome, WebsitePrivacy, WebsiteTerms } from './website/Website';
 
@@ -99,6 +100,7 @@ function AppBody() {
         <Route path="/:city/offers" element={<FeedPage mode="offers" />} />
         <Route path="/:city/new" element={<FeedPage mode="new" />} />
         <Route path="/:city/cabs" element={<Cabs />} />
+        <Route path="/:city/profile" element={<Profile />} />
         <Route path="/:city/browse/:bucket" element={<CategoryBrowse />} />
         <Route path="/:city/browse/:bucket/:sub" element={<CategoryBrowse />} />
         {/* City-scoped, shareable: /gondia, /gondia/cat/pharmacy, /gondia/job-opening */}

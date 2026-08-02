@@ -13,7 +13,6 @@ import { HomeTiles } from './HomeTiles';
 import { HomeFeed } from './HomeFeed';
 import { catLabel } from '../lib/listingMeta';
 import { BottomNav } from './BottomNav';
-import { LangToggle } from './LangToggle';
 
 function MobileFrame({ children }: { children: React.ReactNode }) {
   return (
@@ -22,26 +21,9 @@ function MobileFrame({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-// Rotating two-sided tagline (find AND post), vertical-flip, cycles ~3s in the
-// user's current language.
+// The find-AND-post taglines — now used as the rotating search-box placeholder
+// (they used to be a standalone line under the header).
 const FLIP_KEYS = ['flip.1', 'flip.2', 'flip.3', 'flip.4', 'flip.5', 'flip.6'];
-function FlipTagline() {
-  const { t } = useT();
-  const [i, setI] = useState(0);
-  const [show, setShow] = useState(true);   // soft fade-out → swap → fade-in
-  useEffect(() => {
-    const iv = setInterval(() => {
-      setShow(false);
-      setTimeout(() => { setI((n) => (n + 1) % FLIP_KEYS.length); setShow(true); }, 220);
-    }, 3200);
-    return () => clearInterval(iv);
-  }, []);
-  return (
-    <div className="mt-1.5 text-[12px] text-white/85 truncate transition-opacity duration-200" style={{ opacity: show ? 1 : 0 }}>
-      {t(FLIP_KEYS[i])}
-    </div>
-  );
-}
 function SearchIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-slate-400">
@@ -136,6 +118,10 @@ export function Home({ adminPreview = false, forcePinPrompt = false }: { adminPr
   const [cityOpen, setCityOpen] = useState(forcePinPrompt);
   const [params, setParams] = useSearchParams();
   const { t, lang } = useT();
+  const nav = useNavigate();
+  // The taglines that used to sit under the header now cycle as the search
+  // placeholder (they moved out of the top bar to make room for the profile icon).
+  const [flipIdx, setFlipIdx] = useState(0);
 
   useEffect(() => { setAnalyticsContext({ city: city.name, pincode: city.pincode }); }, [city]);
 
@@ -170,6 +156,13 @@ export function Home({ adminPreview = false, forcePinPrompt = false }: { adminPr
       setStatShow(false);
       setTimeout(() => { setStatTick((n) => n + 1); setStatShow(true); }, 220);
     }, 4000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // Rotate the search-box placeholder through the taglines (only while the box
+  // is empty — once they type, their text shows instead).
+  useEffect(() => {
+    const iv = setInterval(() => setFlipIdx((n) => (n + 1) % FLIP_KEYS.length), 3000);
     return () => clearInterval(iv);
   }, []);
 
@@ -262,16 +255,21 @@ export function Home({ adminPreview = false, forcePinPrompt = false }: { adminPr
             <span className="text-sm font-semibold truncate">{city.name}</span>
             <span className="text-white/70 text-xs">▾</span>
           </button>
-          <LangToggle onDark />
+          {/* Profile — language + gender + Contact us live inside. In the admin
+              preview mirror it's inert (the admin isn't a public visitor). */}
+          <button type="button" onClick={() => { if (!adminPreview) nav(`/${city.slug}/profile`); }}
+            aria-label={t('profile.title')}
+            className="h-9 w-9 shrink-0 rounded-full bg-white/18 flex items-center justify-center active:scale-95 transition">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" /></svg>
+          </button>
         </div>
-        <FlipTagline />
         <form onSubmit={(e) => { e.preventDefault(); runSearch(q); }} className="mt-3">
           <div className="flex items-center gap-2 rounded-2xl bg-white px-4 py-3 shadow-card">
             <SearchIcon />
             <input value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder={t('home.searchPh')}
-              className="flex-1 bg-transparent outline-none text-[15px] text-slate-800 placeholder:text-slate-400" />
+              placeholder={q ? t('home.searchPh') : t(FLIP_KEYS[flipIdx])}
+              className="flex-1 bg-transparent outline-none text-[15px] text-slate-800 placeholder:text-slate-400 transition" />
             {q && <button type="button" onClick={() => { setQ(''); setResults(null); setParams({}); }} className="text-slate-300">✕</button>}
           </div>
         </form>

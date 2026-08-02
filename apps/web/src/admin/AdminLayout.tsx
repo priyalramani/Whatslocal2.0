@@ -5,6 +5,7 @@ import { currentUser, logout } from '../lib/auth';
 import { pendingCount, adminReports } from '../lib/listings';
 import { complaintsPendingCount } from '../lib/complaints';
 import { LoginLimits } from './LoginLimits';
+import { ContactSettings } from './ContactSettings';
 
 // BT/RG-style admin shell: a left sidebar (Dashboard + grouped Operations) with
 // a content <Outlet>. Pages render only their own <main> — the frame lives here.
@@ -24,6 +25,7 @@ export function AdminLayout() {
   const [reports, setReports] = useState(0);
   const [cmp, setCmp] = useState(0);
   const [limits, setLimits] = useState(false);
+  const [contact, setContact] = useState(false);
   // Mobile drawer. The sidebar is fixed-width and never collapsed before — on a
   // phone it ate ~240px of a ~390px screen, so every content page (esp. the wide
   // Posts table) was squeezed into a sliver AND the page itself scrolled sideways,
@@ -80,6 +82,8 @@ export function AdminLayout() {
           <NavLink to="/admin/sequence" className={itemCls}>Category Sequencing</NavLink>
           <button type="button" onClick={() => setLimits(true)}
             className="w-full flex items-center px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100">Login Limits</button>
+          <button type="button" onClick={() => setContact(true)}
+            className="w-full flex items-center px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100">Contact Us</button>
         </nav>
 
         <div className="p-3 border-t border-slate-200 space-y-2">
@@ -96,6 +100,7 @@ export function AdminLayout() {
       </main>
 
       {limits && <LoginLimits onClose={() => setLimits(false)} />}
+      {contact && <ContactSettings onClose={() => setContact(false)} />}
     </div>
   );
 }

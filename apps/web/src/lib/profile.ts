@@ -14,3 +14,11 @@ export const saveGender = (gender: string) =>
     method: 'POST',
     body: JSON.stringify({ visitor_id: getVisitorId(), gender }),
   });
+
+// "Contact us" WhatsApp number + pre-typed message, set by admin.
+export const getContact = () => api<{ whatsapp: string; message: string }>('/profile/contact');
+export const adminSetContact = (whatsapp: string, message: string) =>
+  api<{ whatsapp: string; message: string }>('/admin/contact-settings', {
+    method: 'POST',
+    body: JSON.stringify({ whatsapp, message }),
+  });
