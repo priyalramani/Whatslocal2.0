@@ -42,7 +42,10 @@ const DUP_TYPE_KEY: Record<string, string> = {
   happening: 'ptype.happeningShort', other: 'ptype.other',
 };
 
-const norm = (m: string) => m.replace(/\D/g, '').slice(-10);
+// Null-guarded: alt_phone / whatsapp are optional and may be undefined on a
+// fresh form, and norm() is called on them in validate()/buildPayload — an
+// unguarded m.replace(...) crashed the whole submit (silent: no error, no post).
+const norm = (m?: string | null) => String(m ?? '').replace(/\D/g, '').slice(-10);
 const input = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand';
 
 // Admin quick DOB entry: auto-slash a digit string to dd/mm/yy, convert to/from
@@ -258,7 +261,7 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
   const [statusVal, setStatusVal] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2000); };
-  const [f, setF] = useState<any>({ title: '', mobile: session?.mobile || '', pincode: '441601', hide_title: false, call_ok: true, whatsapp_ok: true, ...(sp.get('deal') === 'rent' ? { sale_or_rent: 'rent' } : {}) });
+  const [f, setF] = useState<any>({ title: '', mobile: session?.mobile || '', pincode: '441601', hide_title: false, call_ok: true, whatsapp_ok: true, alt_phone: '', whatsapp: '', ...(sp.get('deal') === 'rent' ? { sale_or_rent: 'rent' } : {}) });
   // ONE number, plus what it's good for. Both channels are on by default —
   // which is true for almost everyone. Unticking a channel opens an optional
   // cell for a DIFFERENT number that serves it (f.alt_phone for calls,
