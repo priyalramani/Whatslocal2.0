@@ -30,6 +30,7 @@ export function AdminPosts() {
   // Click a numeric header to sort by it; click again to flip direction.
   const [sortKey, setSortKey] = useState<SortKey>('visitors');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [help, setHelp] = useState(false);   // column-meaning legend
 
   useEffect(() => {
     postAnalytics().then((r) => setRows(r.results)).catch((e) => setErr(e?.message || 'Failed to load'));
@@ -56,10 +57,10 @@ export function AdminPosts() {
 
   const shown = (rows || [])
     .filter((r) => !q.trim() || (r.title || '').toLowerCase().includes(q.trim().toLowerCase()))
-    // Pinned always lead, whatever column you sort by — otherwise you'd lose
-    // sight of what you've pinned.
+    // Pure sort by the active column (highest first by default) — pinned rows are
+    // NOT floated to the top so the order stays truly descending; they keep the
+    // amber highlight so you can still spot them.
     .sort((a, b) => {
-      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
       const diff = a[sortKey] - b[sortKey];
       return sortDir === 'desc' ? -diff : diff;
     });
@@ -75,13 +76,25 @@ export function AdminPosts() {
         <Link to="/admin" className="text-sm text-brand hover:underline">← Dashboard</Link>
         <div className="flex items-center justify-between mt-2 mb-4 gap-3 flex-wrap">
           <div>
-            <h1 className="text-lg font-semibold text-slate-800">
-              Post analytics {rows && <span className="text-sm font-normal text-slate-500">· {rows.length} live posts</span>}
+            <h1 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+              <span>Post analytics {rows && <span className="text-sm font-normal text-slate-500">· {rows.length} live posts</span>}</span>
+              <button type="button" onClick={() => setHelp((h) => !h)} aria-label="What do these columns mean?"
+                className={`inline-flex items-center justify-center h-5 w-5 rounded-full border text-[11px] font-normal ${help ? 'border-brand text-brand bg-brand/10' : 'border-slate-300 text-slate-400 hover:text-slate-700 hover:border-slate-400'}`}>?</button>
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">
-              Per-post reach — click a column to sort. Pin a post to make it lead its category.
+              Per-post reach — click a column to sort (highest first). Pin a post to make it lead its category.
               {rows && <> Totals: {totals.landings} link landings · {totals.visitors} visitors · {totals.contacts} contacted{pinnedCount ? ` · ${pinnedCount} pinned` : ''}.</>}
             </p>
+            {help && (
+              <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4 text-[13px] text-slate-600 max-w-2xl space-y-1.5">
+                <div className="font-semibold text-slate-800 mb-1">What the columns mean</div>
+                <div><b className="text-slate-700">Landings</b> — distinct people who arrived straight on this post from a <b>shared link</b> (didn't browse to it inside the app).</div>
+                <div><b className="text-slate-700">Visitors</b> — distinct people who opened the post; the same person opening it many times still counts <b>once</b>.</div>
+                <div><b className="text-slate-700">Views</b> — total opens. The same person opening it 3 times counts as <b>3</b>.</div>
+                <div><b className="text-slate-700">Contacted</b> — distinct people who actually <b>called, WhatsApp'd, or copied</b> the number.</div>
+                <div className="text-[12px] text-slate-400 pt-1">So Views ≥ Visitors ≥ Landings. Landings are the share-link arrivals.</div>
+              </div>
+            )}
           </div>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter by post…"
             className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm w-52" />
