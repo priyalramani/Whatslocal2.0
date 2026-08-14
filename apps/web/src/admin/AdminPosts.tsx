@@ -57,10 +57,10 @@ export function AdminPosts() {
 
   const shown = (rows || [])
     .filter((r) => !q.trim() || (r.title || '').toLowerCase().includes(q.trim().toLowerCase()))
-    // Pure sort by the active column (highest first by default) — pinned rows are
-    // NOT floated to the top so the order stays truly descending; they keep the
-    // amber highlight so you can still spot them.
+    // Pinned always lead, whatever column you sort by — otherwise you'd lose
+    // sight of what you've pinned.
     .sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
       const diff = a[sortKey] - b[sortKey];
       return sortDir === 'desc' ? -diff : diff;
     });
@@ -82,15 +82,15 @@ export function AdminPosts() {
                 className={`inline-flex items-center justify-center h-5 w-5 rounded-full border text-[11px] font-normal ${help ? 'border-brand text-brand bg-brand/10' : 'border-slate-300 text-slate-400 hover:text-slate-700 hover:border-slate-400'}`}>?</button>
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">
-              Per-post reach — click a column to sort (highest first). Pin a post to make it lead its category.
+              Per-post reach — click a column to sort. Pin a post to make it lead its category.
               {rows && <> Totals: {totals.landings} link landings · {totals.visitors} visitors · {totals.contacts} contacted{pinnedCount ? ` · ${pinnedCount} pinned` : ''}.</>}
             </p>
             {help && (
               <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4 text-[13px] text-slate-600 max-w-2xl space-y-1.5">
                 <div className="font-semibold text-slate-800 mb-1">What the columns mean</div>
-                <div><b className="text-slate-700">Landings</b> — distinct people who arrived straight on this post from a <b>shared link</b> (didn't browse to it inside the app).</div>
-                <div><b className="text-slate-700">Visitors</b> — distinct people who opened the post; the same person opening it many times still counts <b>once</b>.</div>
                 <div><b className="text-slate-700">Views</b> — total opens. The same person opening it 3 times counts as <b>3</b>.</div>
+                <div><b className="text-slate-700">Visitors</b> — distinct people who opened the post; the same person opening it many times still counts <b>once</b>.</div>
+                <div><b className="text-slate-700">Landings</b> — distinct people who arrived straight on this post from a <b>shared link</b> (didn't browse to it inside the app).</div>
                 <div><b className="text-slate-700">Contacted</b> — distinct people who actually <b>called, WhatsApp'd, or copied</b> the number.</div>
                 <div className="text-[12px] text-slate-400 pt-1">So Views ≥ Visitors ≥ Landings. Landings are the share-link arrivals.</div>
               </div>
@@ -109,9 +109,9 @@ export function AdminPosts() {
               <thead className="bg-slate-50 text-slate-500 text-left">
                 <tr>
                   <th className="px-3 py-2 font-medium">Post</th>
-                  <SortTh label="Landings" k="landings" cur={sortKey} dir={sortDir} onSort={sortBy} title="Sessions that arrived directly on this post via a shared link" />
-                  <SortTh label="Visitors" k="visitors" cur={sortKey} dir={sortDir} onSort={sortBy} title="Distinct people who opened this post" />
                   <SortTh label="Views" k="views" cur={sortKey} dir={sortDir} onSort={sortBy} title="Total opens (a person can open more than once)" />
+                  <SortTh label="Visitors" k="visitors" cur={sortKey} dir={sortDir} onSort={sortBy} title="Distinct people who opened this post" />
+                  <SortTh label="Landings" k="landings" cur={sortKey} dir={sortDir} onSort={sortBy} title="Sessions that arrived directly on this post via a shared link" />
                   <SortTh label="Contacted" k="contacts" cur={sortKey} dir={sortDir} onSort={sortBy} title="Distinct people who actually called / WhatsApp'd / copied the number (not just revealed it)" />
                   <th className="px-3 py-2 font-medium text-right" title="Pinned posts lead their category — but only where they're already relevant">Pin</th>
                 </tr>
@@ -127,9 +127,9 @@ export function AdminPosts() {
                         {r.self_posted && <span className="ml-1 text-emerald-600">· self-posted</span>}
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-right text-slate-700">{r.landings}</td>
-                    <td className="px-3 py-2 text-right text-slate-700 font-medium">{r.visitors}</td>
-                    <td className="px-3 py-2 text-right text-slate-500">{r.views}</td>
+                    <td className="px-3 py-2 text-right text-slate-700 font-medium">{r.views}</td>
+                    <td className="px-3 py-2 text-right text-slate-700">{r.visitors}</td>
+                    <td className="px-3 py-2 text-right text-slate-500">{r.landings}</td>
                     <td className="px-3 py-2 text-right text-slate-700">{r.contacts}</td>
                     <td className="px-3 py-2 text-right">
                       <button type="button" onClick={() => togglePin(r)} disabled={pinning === r.listing_id}
