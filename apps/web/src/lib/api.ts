@@ -26,6 +26,15 @@ export async function api<T = any>(path: string, opts: RequestInit = {}): Promis
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`/api/v1${path}`, { ...opts, headers });
   if (!res.ok) {
+    // An admin/analytics 401 means the admin session is invalid or expired —
+    // drop it and send them to the login page instead of leaving them stuck on
+    // a dashboard full of "Invalid or expired token" errors. (Keyed to the admin
+    // routes only; a user-endpoint 401 is handled by the app's own login flow.)
+    if (res.status === 401 && (path.startsWith('/admin') || path.startsWith('/analytics'))) {
+      setAdminToken(null);
+      localStorage.removeItem('wl_admin_user');
+      if (!location.pathname.startsWith('/admin/login')) location.replace('/admin/login');
+    }
     let msg = res.statusText;
     let code = '';
     try { const j = await res.json(); msg = j.message || msg; code = j.code || ''; } catch { /* ignore */ }
