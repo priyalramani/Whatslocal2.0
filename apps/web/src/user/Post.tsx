@@ -549,7 +549,10 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
     if (!validate()) return;
     setBusy(true);
     try {
-      if (isEdit || admin || isOwn) { await doSubmit(); return; }
+      // A logged-in user may post with ANY contact number — no per-number OTP.
+      // The OTP path only remains for a NOT-logged-in poster, where it doubles
+      // as their first-time login.
+      if (isEdit || admin || session) { await doSubmit(); return; }
       await requestOtp(f.mobile);
       setOtpStage('awaiting');
     } catch (e: any) {

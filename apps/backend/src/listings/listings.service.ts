@@ -705,23 +705,11 @@ export class ListingsService implements OnModuleInit {
     }
     const contactMobile = AuthService.normalizeMobile((dto.mobile || dto.whatsapp) as string);
 
-    // Contact-number ownership rule (skipped for admin):
-    //  - if the contact number is the poster's own logged-in number → OK.
-    //  - otherwise the poster must have OTP-verified that number (mobile_token).
-    if (!isAdmin) {
-      const own = AuthService.normalizeMobile(ctx.userMobile);
-      if (contactMobile !== own) {
-        const ok = dto.mobile_token
-          ? await this.auth.checkNumberToken(dto.mobile_token, contactMobile)
-          : false;
-        if (!ok) {
-          throw new BadRequestException({
-            code: 'NUMBER_VERIFY_REQUIRED',
-            message: 'Verify this contact number with OTP before posting.',
-          });
-        }
-      }
-    }
+    // Contact-number ownership: a logged-in poster may use ANY contact number
+    // without per-number OTP (product decision). Creating already requires a
+    // valid session (JwtAuthGuard), and `posted_by_mobile`/`posted_by_user_id`
+    // keep the real author on the record for accountability. The old
+    // mobile_token / NUMBER_VERIFY_REQUIRED gate is intentionally removed.
 
     const kind = postTypeToKind(dto.post_type as PostType);
     const geo = await this.pins.resolve(dto.pincode);
