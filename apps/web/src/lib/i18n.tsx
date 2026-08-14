@@ -680,6 +680,9 @@ const S: Record<string, Entry> = {
   // post: error strings
   'post.err.load': { en: 'Failed to load', hi: 'लोड नहीं हो पाया' },
   'post.err.required': { en: 'Name/title, valid mobile and 6-digit pincode are required.', hi: 'नाम/टाइटल, सही मोबाइल और 6 अंकों का पिनकोड ज़रूरी है।' },
+  // Field-specific versions (shown inline under the exact field).
+  'post.err.titleReq': { en: 'Please fill this in.', hi: 'कृपया यह भरें।' },
+  'post.err.pincodeReq': { en: 'Enter a valid 6-digit pincode.', hi: 'सही 6 अंकों का पिनकोड डालें।' },
   'post.err.jobRole': { en: 'Please enter the job role (e.g. Driver).', hi: 'जॉब रोल डालें (जैसे ड्राइवर)।' },
   'post.err.gender': { en: 'Please select gender.', hi: 'जेंडर चुनें।' },
   'post.err.jobLoc': { en: 'Please add the job location / area.', hi: 'जॉब की जगह / इलाका डालें।' },

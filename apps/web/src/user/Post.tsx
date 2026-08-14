@@ -79,13 +79,17 @@ const dmyPreview = (v: string): string => {
   const [y, m, dd] = iso.split('-');
   return `${dd} ${MON[+m - 1]} ${y}`;
 };
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+// `name` anchors the field for scroll-to-error (data-field); `err` (when set)
+// reddens the control (via the .field-error CSS hook) and prints the message
+// right under it.
+function Field({ label, name, err, children }: { label: string; name?: string; err?: string; children: React.ReactNode }) {
   const req = /\*\s*$/.test(label);
   const text = label.replace(/\s*\*\s*$/, '');
   return (
-    <label className="block">
+    <label className={`block ${err ? 'field-error' : ''}`} data-field={name}>
       <span className="text-sm text-slate-600">{text}{req && <span className="text-red-500"> *</span>}</span>
       <div className="mt-1">{children}</div>
+      {err && <div className="text-[12.5px] font-medium text-red-600 mt-1">{err}</div>}
     </label>
   );
 }
@@ -96,7 +100,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // rows to show (business or sell). Selecting sets f.categories + f.category
 // (first) + f.icon (first emoji).
 function CategoryPicker({
-  f, setF, query, setQuery, lang, t, search,
+  f, setF, query, setQuery, lang, t, search, err,
 }: {
   f: any;
   setF: (u: (p: any) => any) => void;
@@ -105,16 +109,17 @@ function CategoryPicker({
   lang: 'en' | 'hi';
   t: (k: string, vars?: any) => string;
   search: (q: string) => { key: string; label: string; emoji: string }[];
+  err?: string;
 }) {
   const rows = search(query);
   return (
-    <Field label={t('post.cats.label', { max: MAX_CATEGORIES, n: (f.categories || []).length })}>
+    <Field label={t('post.cats.label', { max: MAX_CATEGORIES, n: (f.categories || []).length })} name="categories" err={err}>
       <div className="text-[11px] text-slate-400 mb-2">{t('post.cats.hint')}</div>
       <input value={query} onChange={(e) => setQuery(e.target.value)}
         placeholder={t('post.cats.searchPh')} className={`${input} mb-2`} />
       {/* Uniform tile height + a 2.5-row max-height so the third row peeks
           (half-visible) → users know the grid scrolls. */}
-      <div className="grid grid-cols-4 gap-2 max-h-[205px] overflow-y-auto no-scrollbar p-0.5">
+      <div data-cat-grid className="grid grid-cols-4 gap-2 max-h-[205px] overflow-y-auto no-scrollbar p-0.5">
         {rows.map((c) => {
           const cur: string[] = f.categories || (f.category ? [f.category] : []);
           const on = cur.includes(c.label);
@@ -288,6 +293,10 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
     return () => { cancelled = true; };
   }, [f.pincode]);
   const [err, setErr] = useState('');
+  // Which field failed validation + its message. Drives the inline red error,
+  // the scroll-to-field, and the buzz — so the user is taken straight to the
+  // exact field instead of reading a banner far from it.
+  const [fieldErr, setFieldErr] = useState<{ field: string; msg: string } | null>(null);
   const [done, setDone] = useState(false);
   // Duplicate-posting warning: existing postings with this number + kind that the
   // poster can edit. Checked on mobile-blur; dismissible ("continue with new").
@@ -392,7 +401,26 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
     prevCatKeysRef.current = curKeys;
   }, [f.categories, postType]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
+  const set = (k: string, v: any) => {
+    setF((p: any) => ({ ...p, [k]: v }));
+    // Clear the field's error as soon as they start fixing it (mobile drives the
+    // 'contact' field group).
+    setFieldErr((fe) => (fe && (fe.field === k || (k === 'mobile' && fe.field === 'contact')) ? null : fe));
+  };
+  // Resolve the inline error message for a given field (empty = no error).
+  const fe = (k: string) => (fieldErr?.field === k ? fieldErr.msg : '');
+  // Fail validation on a field: show its message, scroll to + focus it, and buzz.
+  function fail(field: string, msg: string): false {
+    setErr('');
+    setFieldErr({ field, msg });
+    requestAnimationFrame(() => {
+      const host = document.querySelector(`[data-field="${field}"]`) as HTMLElement | null;
+      host?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      (host?.querySelector('input,textarea,select') as HTMLElement | null)?.focus?.();
+    });
+    try { navigator.vibrate?.([60, 40, 60]); } catch { /* vibration unsupported */ }
+    return false;
+  }
   const tagKind = postTypeTagKind(postType);
   const isJob = postType === 'hiring' || postType === 'job_seeker';
   // "Hide my number" is ONLY valid for Happening — guard it so the flag can't
@@ -435,42 +463,41 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
   const titlePh = (TITLE[postType] || TITLE.other).ph;
 
   function validate(): boolean {
-    if (!f.title || !/^\d{6}$/.test(f.pincode)) {
-      setErr(t('post.err.required'));
-      return false;
-    }
+    setFieldErr(null);
+    if (!f.title) return fail('title', t('post.err.titleReq'));
+    if (!/^\d{6}$/.test(f.pincode)) return fail('pincode', t('post.err.pincodeReq'));
     // The main number is ALWAYS required — it's the contact, whichever channels
     // it serves — and at least one channel has to be ticked or the number is
     // published for nothing. The optional per-channel numbers, when filled in,
     // must still be complete.
     if (!hideNum) {
-      if (norm(f.mobile).length !== 10) { setErr(t('post.err.contact')); return false; }
-      if (!chCall && !chWa) { setErr(t('post.err.pickChannel')); return false; }
+      if (norm(f.mobile).length !== 10) return fail('contact', t('post.err.contact'));
+      if (!chCall && !chWa) return fail('contact', t('post.err.pickChannel'));
       const alt = norm(f.alt_phone), waN = norm(f.whatsapp);
-      if (!chCall && alt.length > 0 && alt.length !== 10) { setErr(t('post.err.altCall')); return false; }
-      if (!chWa && waN.length > 0 && waN.length !== 10) { setErr(t('post.err.altWa')); return false; }
-    } else if (norm(f.mobile).length !== 10) { setErr(t('post.err.contact')); return false; }
-    if (isJob && !f.job_role?.trim()) { setErr(t('post.err.jobRole')); return false; }
+      if (!chCall && alt.length > 0 && alt.length !== 10) return fail('alt_phone', t('post.err.altCall'));
+      if (!chWa && waN.length > 0 && waN.length !== 10) return fail('whatsapp', t('post.err.altWa'));
+    } else if (norm(f.mobile).length !== 10) return fail('contact', t('post.err.contact'));
+    if (isJob && !f.job_role?.trim()) return fail('job_role', t('post.err.jobRole'));
     // A job role category is the classifier that powers role-based filtering.
-    if (isJob && !(f.categories?.length)) { setErr(t('post.err.jobCategory')); return false; }
-    if (postType === 'job_seeker' && !f.gender) { setErr(t('post.err.gender')); return false; }
+    if (isJob && !(f.categories?.length)) return fail('categories', t('post.err.jobCategory'));
+    if (postType === 'job_seeker' && !f.gender) return fail('gender', t('post.err.gender'));
     // Admin quick-DOB: block a typed-but-invalid date (wrong day/month/leap).
-    if (admin && postType === 'job_seeker' && dobText.trim() && !f.dob) { setErr(t('post.dob.invalid')); return false; }
-    if (postType === 'hiring' && !f.address?.trim()) { setErr(t('post.err.jobLoc')); return false; }
+    if (admin && postType === 'job_seeker' && dobText.trim() && !f.dob) return fail('dob', t('post.dob.invalid'));
+    if (postType === 'hiring' && !f.address?.trim()) return fail('address', t('post.err.jobLoc'));
     if (postType === 'business') {
-      if (!f.short_desc?.trim()) { setErr(t('post.err.shortDesc')); return false; }
-      if (!(f.categories?.length)) { setErr(t('post.err.category')); return false; }
+      if (!f.short_desc?.trim()) return fail('short_desc', t('post.err.shortDesc'));
+      if (!(f.categories?.length)) return fail('categories', t('post.err.category'));
     }
-    if (postType === 'sell' && !(f.categories?.length)) { setErr(t('post.err.category')); return false; }
+    if (postType === 'sell' && !(f.categories?.length)) return fail('categories', t('post.err.category'));
     if (postType === 'happening') {
-      if (!f.happening_type) { setErr(t('post.err.hapType')); return false; }
+      if (!f.happening_type) return fail('happening_type', t('post.err.hapType'));
       // News & Info must carry a sub-heading + body so the card is useful.
       if (f.happening_type === 'news' || f.happening_type === 'info') {
-        if (!f.short_desc?.trim()) { setErr(t('post.err.subtitle')); return false; }
-        if (!f.description?.trim()) { setErr(t('post.err.description')); return false; }
+        if (!f.short_desc?.trim()) return fail('short_desc', t('post.err.subtitle'));
+        if (!f.description?.trim()) return fail('description', t('post.err.description'));
       }
     }
-    if (!isJob && keywordCount === 0) { setErr(t('post.err.keyword')); return false; }
+    if (!isJob && keywordCount === 0) return fail('keywords', t('post.err.keyword'));
     return true;
   }
 
@@ -610,7 +637,7 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
       {/* ONE number. The ticks say what it's good for — both on by default,
           which is right for almost everyone. Untick one and an optional cell
           appears for a different number that serves that channel. */}
-      <Field label={`${hideNum ? t('post.yourMobile') : t('post.contact.number')} *`}>
+      <Field label={`${hideNum ? t('post.yourMobile') : t('post.contact.number')} *`} name="contact" err={fe('contact')}>
         <input className={input} value={f.mobile}
           onChange={(e) => { set('mobile', e.target.value.replace(/\D/g, '').slice(0, 10)); setOtpStage('idle'); dupDismissedRef.current = ''; }}
           onBlur={runDupCheck}
@@ -640,7 +667,7 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
           </div>
           {!chCall && (
             <div className="mt-2.5">
-              <Field label={t('post.contact.altCall')}>
+              <Field label={t('post.contact.altCall')} name="alt_phone" err={fe('alt_phone')}>
                 <input className={input} value={f.alt_phone || ''}
                   onChange={(e) => set('alt_phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
                   inputMode="numeric" placeholder={t('login.mobilePh')} />
@@ -650,7 +677,7 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
           )}
           {!chWa && (
             <div className="mt-2.5">
-              <Field label={t('post.contact.altWa')}>
+              <Field label={t('post.contact.altWa')} name="whatsapp" err={fe('whatsapp')}>
                 <input className={input} value={f.whatsapp || ''}
                   onChange={(e) => set('whatsapp', e.target.value.replace(/\D/g, '').slice(0, 10))}
                   inputMode="numeric" placeholder={t('login.mobilePh')} />
@@ -670,7 +697,7 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
     </div>
   );
   const pincodeBlock = (
-    <Field label={t('post.pincode')}>
+    <Field label={t('post.pincode')} name="pincode" err={fe('pincode')}>
       <input className={input} value={f.pincode}
         onChange={(e) => set('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
         inputMode="numeric" maxLength={6} placeholder="441601" />
@@ -761,7 +788,7 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
           {/* Happening: the FIRST question is Event / News / Info — it reshapes the
               whole form (title label, which fields are required, number privacy). */}
           {postType === 'happening' && (
-            <Field label={t('post.hap.q')}>
+            <Field label={t('post.hap.q')} name="happening_type" err={fe('happening_type')}>
               <div className="grid grid-cols-2 gap-2">
                 {([['event', 'hap.event'], ['news', 'hap.news']] as const).map(([v, k]) => (
                   <button type="button" key={v}
@@ -774,7 +801,7 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
             </Field>
           )}
 
-          <Field label={titleLabel}>
+          <Field label={titleLabel} name="title" err={fe('title')}>
             <input className={input} value={f.title} onChange={(e) => set('title', e.target.value)}
               placeholder={titlePh || undefined} />
           </Field>
@@ -789,7 +816,7 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
 
           {postType === 'business' && (
             <CategoryPicker f={f} setF={setF} query={catQuery} setQuery={setCatQuery}
-              lang={lang} t={t} search={searchCategories} />
+              lang={lang} t={t} search={searchCategories} err={fe('categories')} />
           )}
 
           {postType === 'sell' && <>
@@ -813,7 +840,7 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
               </div>
             </Field>
             <CategoryPicker f={f} setF={setF} query={catQuery} setQuery={setCatQuery}
-              lang={lang} t={t} search={(q) => searchSellCategories(q, f.sale_or_rent || 'sale')} />
+              lang={lang} t={t} search={(q) => searchSellCategories(q, f.sale_or_rent || 'sale')} err={fe('categories')} />
           </>}
 
           {postType === 'job_seeker' && (
@@ -830,14 +857,14 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
 
           {/* ===== Essentials by type (TOP) ===== */}
           {postType === 'business' && <>
-            <Field label={t('post.shortDesc.label')}>
+            <Field label={t('post.shortDesc.label')} name="short_desc" err={fe('short_desc')}>
               <input className={input} value={f.short_desc || ''} maxLength={35}
                 onChange={(e) => set('short_desc', e.target.value)} placeholder={t('post.shortDesc.ph')} />
               <div className="text-[11px] text-slate-400 mt-1 text-right">{(f.short_desc || '').length}/35</div>
             </Field>
             <Field label={t('post.fullDesc.label')}><textarea className={input} rows={3} value={f.description || ''} onChange={(e) => set('description', e.target.value)} placeholder={t('post.fullDesc.ph')} /></Field>
             <Field label={t('post.address.label')}><input className={input} value={f.address || ''} onChange={(e) => set('address', e.target.value)} placeholder={t('post.address.ph')} /></Field>
-            <Field label={t('post.keywords.label')}>
+            <Field label={t('post.keywords.label')} name="keywords" err={fe('keywords')}>
               {(f.categories?.length > 0) && (
                 <div className="text-[11px] text-slate-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 mb-2">
                   {t('post.keywords.hint')}
@@ -857,17 +884,17 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
                 <input className={input} value={f.rent_period || ''} onChange={(e) => set('rent_period', e.target.value)} placeholder={t('post.rent.periodPh')} />
               </Field>
             )}
-            <Field label={t('post.keywords.label')}><SearchKeywords tagKind={tagKind} value={keywords} onChange={setKeywords} /></Field>
+            <Field label={t('post.keywords.label')} name="keywords" err={fe('keywords')}><SearchKeywords tagKind={tagKind} value={keywords} onChange={setKeywords} /></Field>
           </>}
 
           {postType === 'hiring' && <>
             {/* Order: Job Title (above) → Role/Position → Job category → Pincode → Area → Mobile. */}
-            <Field label={t('post.jobRole.label')}><input className={input} maxLength={120} value={f.job_role || ''} onChange={(e) => set('job_role', e.target.value)} placeholder={t('post.jobRole.ph')} /></Field>
+            <Field label={t('post.jobRole.label')} name="job_role" err={fe('job_role')}><input className={input} maxLength={120} value={f.job_role || ''} onChange={(e) => set('job_role', e.target.value)} placeholder={t('post.jobRole.ph')} /></Field>
             {/* Role category (classifier) — free-text above is the specific title. */}
             <CategoryPicker f={f} setF={setF} query={catQuery} setQuery={setCatQuery}
-              lang={lang} t={t} search={searchJobCategories} />
+              lang={lang} t={t} search={searchJobCategories} err={fe('categories')} />
             {pincodeBlock}
-            <Field label={t('post.jobLoc.label')}><input className={input} value={f.address || ''} onChange={(e) => set('address', e.target.value)} placeholder={t('post.jobLoc.ph')} /></Field>
+            <Field label={t('post.jobLoc.label')} name="address" err={fe('address')}><input className={input} value={f.address || ''} onChange={(e) => set('address', e.target.value)} placeholder={t('post.jobLoc.ph')} /></Field>
             {contactBlock}
             <div className="grid grid-cols-2 gap-3">
               <Field label={t('post.salaryMin')}><input type="number" className={input} value={f.salary_min || ''} onChange={(e) => set('salary_min', e.target.value)} /></Field>
@@ -900,16 +927,16 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
           </>}
 
           {postType === 'job_seeker' && <>
-            <Field label={`${t('post.jobseeker.skills')} *`}>
+            <Field label={`${t('post.jobseeker.skills')} *`} name="job_role" err={fe('job_role')}>
               <textarea rows={3} className={input} maxLength={120} value={f.job_role || ''} onChange={(e) => set('job_role', e.target.value)} />
               <div className="text-[11px] text-slate-400 mt-1 text-right">{(f.job_role || '').length}/120</div>
             </Field>
             {/* Role category (classifier) — free-text above is what you specifically do. */}
             <CategoryPicker f={f} setF={setF} query={catQuery} setQuery={setCatQuery}
-              lang={lang} t={t} search={searchJobCategories} />
+              lang={lang} t={t} search={searchJobCategories} err={fe('categories')} />
             <div className="grid grid-cols-2 gap-3">
               <Field label={t('post.expMonths')}><input type="number" min={0} className={input} value={f.experience_months ?? 0} onChange={(e) => set('experience_months', e.target.value)} /></Field>
-              <Field label={`${t('post.gender')} *`}>
+              <Field label={`${t('post.gender')} *`} name="gender" err={fe('gender')}>
                 <select className={input} value={f.gender || ''} onChange={(e) => set('gender', e.target.value)}>
                   <option value="">—</option><option value="male">{t('opt.male')}</option><option value="female">{t('opt.female')}</option><option value="other">{t('opt.other')}</option>
                 </select>
@@ -925,7 +952,7 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
               </Field>
             </div>
             {admin ? (
-              <Field label={`${t('post.dob')} — dd/mm/yy`}>
+              <Field label={`${t('post.dob')} — dd/mm/yy`} name="dob" err={fe('dob')}>
                 <input className={input} value={dobText} inputMode="numeric" maxLength={8} placeholder="dd/mm/yy"
                   onChange={(e) => { const m = maskDmy(e.target.value); setDobText(m); set('dob', dmyToIso(m)); }} />
                 {f.dob
@@ -946,21 +973,21 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
               <Field label={t('post.venue.label')}><input className={input} value={f.address || ''} onChange={(e) => set('address', e.target.value)} placeholder={t('post.venue.ph')} /></Field>
             </>}
             {(f.happening_type === 'news' || f.happening_type === 'info') && <>
-              <Field label={`${t('post.hap.subtitle')} *`}>
+              <Field label={`${t('post.hap.subtitle')} *`} name="short_desc" err={fe('short_desc')}>
                 <input className={input} value={f.short_desc || ''} maxLength={80}
                   onChange={(e) => set('short_desc', e.target.value)} placeholder={t('post.hap.subtitlePh')} />
                 <div className="text-[11px] text-slate-400 mt-1 text-right">{(f.short_desc || '').length}/80</div>
               </Field>
-              <Field label={`${f.happening_type === 'news' ? t('post.hap.story') : t('post.details')} *`}>
+              <Field label={`${f.happening_type === 'news' ? t('post.hap.story') : t('post.details')} *`} name="description" err={fe('description')}>
                 <textarea className={input} rows={5} value={f.description || ''}
                   onChange={(e) => set('description', e.target.value)} placeholder={t('post.hap.bodyPh')} />
               </Field>
             </>}
-            <Field label={t('post.keywords.label')}><SearchKeywords tagKind={tagKind} value={keywords} onChange={setKeywords} /></Field>
+            <Field label={t('post.keywords.label')} name="keywords" err={fe('keywords')}><SearchKeywords tagKind={tagKind} value={keywords} onChange={setKeywords} /></Field>
           </>}
 
           {postType === 'other' && (
-            <Field label={t('post.keywords.label')}><SearchKeywords tagKind={tagKind} value={keywords} onChange={setKeywords} /></Field>
+            <Field label={t('post.keywords.label')} name="keywords" err={fe('keywords')}><SearchKeywords tagKind={tagKind} value={keywords} onChange={setKeywords} /></Field>
           )}
 
           {/* ===== More details (collapsible) ===== */}

@@ -50,3 +50,17 @@ body {
 /* Home header rotating tagline — vertical flip in. */
 @keyframes flipIn { from { transform: translateY(70%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .flip-in { animation: flipIn .4s cubic-bezier(.32,.72,0,1); }
+
+/* A field that failed validation: redden its control + a soft ring, and give it
+   a one-shot shake so the eye lands on it (paired with scroll-to + vibrate). */
+.field-error input, .field-error textarea, .field-error select,
+.field-error [data-cat-grid] {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 1px #ef4444;
+}
+.field-error { animation: fieldShake .3s ease-in-out; }
+@keyframes fieldShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
