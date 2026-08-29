@@ -67,7 +67,33 @@ score = log10(1 + views)                                  # durable popularity
 - **Why:** give brand-new listings real exposure to earn their first views without letting them bury genuinely popular ones; stale + ignored listings sink. (This replaced the old split where home was views-sorted and category/"See all" pages were `updatedAt`-sorted.)
 - **Scale caveat:** candidates are ranked **in memory** from a pool capped at `RANK_POOL_CAP=500` (newest-first fetch). Fine at one-city scale; a category exceeding 500 rows would need a precomputed/stored score to rank correctly. Applies to both the home rows and the "See all" category/browse pages.
 
-**Relevance ranking** (text search) is **unchanged**: coverage (how many query tokens matched) → cumulative field-placement score (title 10 / keywords 6 / short 4 / desc 2 / synonym-only 1, + exact/prefix title bonus) → views → recency. See [DECISIONS.md](DECISIONS.md).
+**Relevance ranking** (text search) — `relevance()` in `listings.service.ts`. Sort order:
+
+1. **Coverage** — how many of the query's words matched *anywhere* (match more → rank higher). Primary.
+2. **Placement score** — a word scores at **every** level it appears, **cumulatively** (title + subtitle beats title alone):
+
+   | Level | Points | Notes |
+   |---|---|---|
+   | Title — exact whole match | **+30** | bonus |
+   | Title — starts with query | +15 | bonus |
+   | Title — contains it | **10** | specific to this post |
+   | Post keywords (poster-tagged) | **6** | deliberate |
+   | Subtitle (short_desc) | **4** | on the card |
+   | *Subcategory keyword* | *3* | **not built yet** — reserved tier (see below) |
+   | Description | **2** | buried/wordy |
+   | Category keyword | **1** | broadest/weakest — shared by every post in the category |
+
+3. **Views** → 4. **Recency** — final tie-breaks. (Pin + self-posted + fair-visibility slot between coverage and score; see the sort in `search()`.)
+
+**Category is a LIVE tier** (added 2026-08-30). The query is resolved to category **labels** at search time via the catalog's synonyms (`impliedCategoryLabels()`) — e.g. `"badhai"` → *Home Repair Services* / *Carpenter*. This does two things:
+- **Widens the match** to posts *in* that category via `{ categories: { $in } }`, so a keyword added to a category reaches **old posts too** — their frozen `search_blob` predates the word, but the live category lookup finds them anyway. **No backfill, ever.**
+- **Scores** that structural match at the low category weight (1). It only fires when the word isn't already in the post's own text (a new post carries the synonym in-blob and scores it there), so there's no double-count.
+
+*Worked example — search `"badhai"`:*
+- Post **titled** "Badhai Ramesh — Furniture Work", filed under Carpenter → title(10) + category(1) = **11** → top.
+- A Home-Repair shop that matches **only** because "badhai" is in its category's synonym list → category(1) = **1** → shown (coverage rescued to 1), but below the specific one.
+
+**Subcategory (weight 3)** is a **reserved, not-yet-built** tier: a real Category→Subcategory taxonomy (own keyword lists, poster-assigned) would slot between subtitle(4) and description(2). Deferred — needs a schema field, a posting-UI picker, and per-post assignment. See [DECISIONS.md](DECISIONS.md).
 
 ## Social link preview (Open Graph) pipeline
 When a WhatsLocal link is pasted into WhatsApp/Facebook/Telegram/etc., a rich card unfurls. The pipeline:

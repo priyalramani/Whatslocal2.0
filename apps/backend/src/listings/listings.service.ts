@@ -5,7 +5,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
-  maskTitle, calcAge, postTypeToKind, CATEGORY_BY_LABEL, CATEGORY_BY_KEY,
+  maskTitle, calcAge, postTypeToKind, CATEGORY_BY_LABEL, CATEGORY_BY_KEY, ALL_CATEGORIES,
   defaultHomeSequence, slugifyTitle, type PostType,
 } from '@whatslocal/types';
 import { Listing, ListingDocument } from './listing.schema';
@@ -108,6 +108,33 @@ function queryGroups(q: string, city?: string): string[][] {
   return groups;
 }
 
+// ===== Live category matching (no backfill) =====
+// A search word can name a CATEGORY, not just appear in a post's text — "badhai"
+// means carpenter. We resolve the query to category LABELS at search time from the
+// LIVE synonym catalog, so a post is findable by its category's words WITHOUT those
+// words being frozen into the post at creation. That's what lets a newly-added
+// category keyword reach OLD posts too — no re-indexing / backfill ever. Scored LOW
+// (category = the broadest, weakest signal) in relevance().
+const CAT_SYN_INDEX: { label: string; syns: string[] }[] =
+  ALL_CATEGORIES.map((c) => ({ label: c.label, syns: (c.synonyms || []).map(norm).filter(Boolean) }));
+
+// Category labels named by the query tokens. Same rule as the picker: exact, or a
+// ≥4-char containment either way (so "badhai"↔a carpenter synonym hits, while a
+// 2-char token can't drag in half the catalog).
+function impliedCategoryLabels(groups: string[][]): Set<string> {
+  const out = new Set<string>();
+  if (!groups.length) return out;
+  const toks = groups.flat();
+  for (const { label, syns } of CAT_SYN_INDEX) {
+    for (const s of syns) {
+      if (toks.some((t) => s === t || (t.length >= 4 && s.includes(t)) || (s.length >= 4 && t.includes(s)))) {
+        out.add(label); break;
+      }
+    }
+  }
+  return out;
+}
+
 // ===== Spelling correction (only ever runs when a search found NOTHING) =====
 // Real zero-result queries from the log: "jib"→job, "gindia"→gondia,
 // "luon"→lion, "meeicine"→medicine, "patha"→pathology, "sarvan"→shravan.
@@ -168,10 +195,13 @@ function allowedEdits(len: number): number {
 //  - coverage: how many query tokens the listing matches (PRIMARY) — match more
 //    of the query, rank higher. A token counts if any of its variants hits.
 //  - score: field weights are CUMULATIVE, so a token in MORE places scores
-//    higher (title+keywords beats title alone): title 10, keywords 6, short 4,
-//    description 2, synonym-only 1. Plus exact/prefix title bonuses.
+//    higher (title+keywords beats title alone). The placement hierarchy:
+//      title 10 · post-keywords 6 · subtitle 4 · [subcategory 3, future] ·
+//      description 2 · category 1.  Plus exact(+30)/prefix(+15)/contains(+8)
+//    title bonuses. Category is the LIVE structural tier (impliedCats) — lowest
+//    because it's the broadest signal (shared by every post in the category).
 // Caller then tie-breaks by popularity (views), then recency.
-function relevance(d: any, groups: string[][], rawQ: string): { coverage: number; score: number } {
+function relevance(d: any, groups: string[][], rawQ: string, impliedCats?: Set<string>): { coverage: number; score: number } {
   const nTitle = norm(d.title);
   const nKw = norm((d.keywords_cache || []).join(' '));
   const nShort = norm(d.short_desc);
@@ -192,6 +222,16 @@ function relevance(d: any, groups: string[][], rawQ: string): { coverage: number
   if (nq && nTitle === nq) score += 30;
   else if (nq && nTitle.startsWith(nq)) score += 15;
   else if (nq && nTitle.includes(nq)) score += 8;
+  // Category tier (weakest, structural): the query NAMED this post's category via
+  // the live catalog, but the word isn't in the post's own text. Rescue coverage
+  // (so an old post that matches ONLY by category isn't dropped as coverage 0) and
+  // add the low category weight. New posts already carry the synonym in-blob and
+  // scored it via nBlob above, so this fires only for the pure category-only case —
+  // no double count. (Subcategory, a future level, will slot here at weight 3.)
+  if (impliedCats && impliedCats.size && coverage === 0) {
+    const cats = [...(d.categories || []), d.category].filter(Boolean);
+    if (cats.some((c: string) => impliedCats.has(c))) { coverage = 1; score += 1; }
+  }
   return { coverage, score };
 }
 
@@ -957,10 +997,21 @@ export class ListingsService implements OnModuleInit {
     // "distributors"→"distributor". Then tie-break by field score → views →
     // recency.
     const groups = opts.q ? queryGroups(opts.q, opts.city) : [];
+    // Live category tier: which categories does the query NAME? (e.g. "badhai" →
+    // "Home Repair Services"). Used both to widen the match to posts in those
+    // categories — reaching OLD posts whose frozen blob predates the keyword, so
+    // no backfill — and to score that structural match (low) in relevance().
+    const impliedCats = opts.q ? impliedCategoryLabels(groups) : new Set<string>();
     if (opts.q) {
       if (groups.length) {
-        // OR across every variant of every token.
-        filter.$or = groups.flatMap((g) => g.map((v) => ({ search_norm: { $regex: escapeRe(v) } })));
+        // OR across every variant of every token…
+        const or: any[] = groups.flatMap((g) => g.map((v) => ({ search_norm: { $regex: escapeRe(v) } })));
+        // …plus posts sitting in a category the query named (live, un-frozen).
+        if (impliedCats.size) {
+          const labels = [...impliedCats];
+          or.push({ categories: { $in: labels } }, { category: { $in: labels } });
+        }
+        filter.$or = or;
       }
       const CANDIDATE_CAP = 200;
       const candidates = await this.listings
@@ -974,7 +1025,7 @@ export class ListingsService implements OnModuleInit {
       // above a better-matching one. It replaces the old `views` tie-break, which
       // rewarded the already-popular (rich-get-richer).
       const scored = candidates
-        .map((d) => ({ d, r: relevance(d, groups, String(opts.q)) }))
+        .map((d) => ({ d, r: relevance(d, groups, String(opts.q), impliedCats) }))
         .filter((x) => groups.length === 0 || x.r.coverage > 0); // must match ≥1 token
       const vmap = opts.vid ? await this.visScores(scored.map((x) => String(x.d._id))) : new Map<string, number>();
       const ranked = scored
