@@ -24,6 +24,12 @@ export async function api<T = any>(path: string, opts: RequestInit = {}): Promis
     ...(opts.headers as Record<string, string> | undefined),
   };
   if (token) headers.Authorization = `Bearer ${token}`;
+  // Tell the server the visitor's UI language (stored by i18n) so language-aware
+  // side effects — e.g. the WhatsApp sent when a post is approved — match it.
+  try {
+    const lang = localStorage.getItem('wl_lang');
+    if (lang === 'en' || lang === 'hi') headers['X-Lang'] = lang;
+  } catch { /* localStorage may be unavailable — header is best-effort */ }
   const res = await fetch(`/api/v1${path}`, { ...opts, headers });
   if (!res.ok) {
     // An admin/analytics 401 means the admin session is invalid or expired —

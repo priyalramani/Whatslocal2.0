@@ -15,6 +15,7 @@ import { AdminPosts } from './AdminPosts';
 import { AdminWards } from './AdminWards';
 import { AdminComplaints } from './AdminComplaints';
 import { AdminCabs } from './AdminCabs';
+import { AdminWhatsApp } from './AdminWhatsApp';
 
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   return currentUser()?.role === 'admin' ? <>{children}</> : <Navigate to="/admin/login" replace />;
@@ -48,6 +49,7 @@ export function AdminApp() {
         <Route path="posts" element={<AdminPosts />} />
         {/* Operations · Settings */}
         <Route path="sequence" element={<AdminSequence />} />
+        <Route path="whatsapp" element={<AdminWhatsApp />} />
         {/* Posting */}
         <Route path="post" element={<AdminPost />} />
         <Route path="listings/:id" element={<AdminPost />} />

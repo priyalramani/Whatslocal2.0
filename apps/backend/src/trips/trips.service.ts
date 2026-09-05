@@ -13,13 +13,24 @@ const istToday = () => new Date(Date.now() + IST).toISOString().slice(0, 10);
 // of every `expires_at` filter and out of the sweep.
 const NEVER = new Date('2999-12-31T00:00:00.000Z');
 
-// A trip stays live until the END of its window (+1h grace so a cab leaving at
-// 15:00 is still callable at 15:30). No window given → end of that IST day.
-// A recurring (daily commercial) operator doesn't expire at all.
-function expiryOf(date: string, timeTo?: string, recurring?: boolean): Date {
-  if (recurring) return NEVER;
-  const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/.test(timeTo || '') ? timeTo! : '23:59';
-  return new Date(`${date}T${hhmm}:00+05:30`);
+// Calendar next-day for a YYYY-MM-DD string (pure date arithmetic, TZ-safe).
+const addDay = (date: string): string => {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d) + 86_400_000).toISOString().slice(0, 10);
+};
+const validHHMM = (s?: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(s || '');
+
+// A trip stays live until the END of its departure window (+1h grace so a cab
+// leaving at 15:00 is still callable at 15:30). No window given → end of that IST
+// day. OVERNIGHT windows cross midnight — when the end time is at or before the
+// start (e.g. 20:00 → 05:00), the window ENDS THE NEXT DAY, so expiry rolls to
+// date+1. Without this an overnight cab would expire the same morning, before it
+// even departs. (Recurring operators are handled by the callers with NEVER.)
+function expiryOf(date: string, timeFrom?: string, timeTo?: string): Date {
+  const hhmm = validHHMM(timeTo) ? timeTo! : '23:59';
+  const overnight = validHHMM(timeFrom) && validHHMM(timeTo) && timeTo! <= timeFrom!;
+  const day = overnight ? addDay(date) : date;
+  return new Date(`${day}T${hhmm}:00+05:30`);
 }
 
 @Injectable()
@@ -71,7 +82,7 @@ export class TripsService implements OnModuleInit {
     const recurring = !!dto.recurring;
     const expires = recurring
       ? NEVER
-      : new Date(expiryOf(dto.date, dto.time_to).getTime() + 60 * 60 * 1000); // +1h grace
+      : new Date(expiryOf(dto.date, dto.time_from, dto.time_to).getTime() + 60 * 60 * 1000); // +1h grace
     const doc = await this.trips.create({
       ...dto,
       one_way: dto.one_way !== false,
@@ -126,7 +137,7 @@ export class TripsService implements OnModuleInit {
     const doc = await this.trips.create({
       from_city: src.from_city, to_city: src.to_city, via: src.via,
       date: dto.date, time_from, time_to,
-      expires_at: new Date(expiryOf(dto.date, time_to).getTime() + 60 * 60 * 1000),
+      expires_at: new Date(expiryOf(dto.date, time_from, time_to).getTime() + 60 * 60 * 1000),
       vehicle: src.vehicle, seats: src.seats, fare: src.fare, one_way: src.one_way, note: src.note,
       operator_name: src.operator_name, mobile: src.mobile, whatsapp: src.whatsapp,
       posted_by_user_id: userId, posted_by_mobile: src.posted_by_mobile,
@@ -170,7 +181,7 @@ export class TripsService implements OnModuleInit {
       ...dto,
       one_way: dto.one_way !== false,
       recurring,
-      expires_at: recurring ? NEVER : new Date(expiryOf(dto.date, dto.time_to).getTime() + 60 * 60 * 1000),
+      expires_at: recurring ? NEVER : new Date(expiryOf(dto.date, dto.time_from, dto.time_to).getTime() + 60 * 60 * 1000),
       posted_by_user_id: adminId,
       posted_by_mobile: '',
       active: true,
@@ -190,8 +201,9 @@ export class TripsService implements OnModuleInit {
       patch.expires_at = NEVER;
     } else {
       const date = dto.date || src.date;
+      const timeFrom = dto.time_from !== undefined ? dto.time_from : src.time_from;
       const timeTo = dto.time_to !== undefined ? dto.time_to : src.time_to;
-      patch.expires_at = new Date(expiryOf(date, timeTo).getTime() + 60 * 60 * 1000);
+      patch.expires_at = new Date(expiryOf(date, timeFrom, timeTo).getTime() + 60 * 60 * 1000);
     }
     const d: any = await this.trips.findByIdAndUpdate(id, patch, { new: true }).lean();
     return this.pub(d);

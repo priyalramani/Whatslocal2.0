@@ -3,11 +3,12 @@ import {
   type OnModuleInit,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import mongoose, { Model } from 'mongoose';
 import {
   maskTitle, calcAge, postTypeToKind, CATEGORY_BY_LABEL, CATEGORY_BY_KEY, ALL_CATEGORIES,
   defaultHomeSequence, slugifyTitle, type PostType,
 } from '@whatslocal/types';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { Listing, ListingDocument } from './listing.schema';
 import { Reveal, RevealDocument } from './reveal.schema';
 import { Report, ReportDocument } from './report.schema';
@@ -27,6 +28,8 @@ export interface PostContext {
   userId: string;
   role: string;
   userMobile: string;
+  lang?: string; // poster's UI language ('en' | 'hi'), from the X-Lang header —
+  // stored on the listing so the approval WhatsApp goes out in their language.
 }
 
 const PAGE_SIZE = 20;
@@ -412,11 +415,15 @@ export class ListingsService implements OnModuleInit {
     private readonly tagsSvc: TagsService,
     private readonly auth: AuthService,
     private readonly pins: PincodeService,
+    private readonly whatsapp: WhatsappService,
   ) {}
 
   // One-time, idempotent backfill: give any pre-slug listings a readable unique
   // slug. Cheap no-op once every row has one (a single indexed find returns []).
   async onModuleInit(): Promise<void> {
+    // Time-based auto-hide for unanswered contact-alert milestones (no scheduler
+    // dependency — a plain interval; also runs once at boot).
+    this.startContactAlertSweep();
     // 1) Backfill any pre-slug listings.
     const missing = await this.listings
       .find({ $or: [{ slug: { $exists: false } }, { slug: null }, { slug: '' }] }, { title: 1, hide_title: 1 })
@@ -647,6 +654,70 @@ export class ListingsService implements OnModuleInit {
     return { ok: true };
   }
 
+  // ---- Per-category photo requirement (admin "Category Setting") ------------
+  // Modes: 'compulsory' (poster MUST add a photo), 'soft' (a short warning, but
+  // allowed without), 'none' (default — no photo needed). Stored as a
+  // { categoryKey: mode } map in app_config 'category_photo_modes'; a key ABSENT
+  // from the map means 'none', so we only ever persist the non-default ones.
+  // Read at the posting end to enforce/warn against the selected categories.
+  private static PHOTO_MODES = new Set(['compulsory', 'soft', 'none']);
+  // ANY orderable section on the Category Setting page can carry a photo
+  // requirement — business categories, the Sell/Rent sections, Jobs/Events, and
+  // Ward Complaints. Keyed by SECTION ID ("cat:homeservice", "sale:rent",
+  // "kind:job_opening", "special:complaints"). Only requirement: the id resolves.
+  private isPhotoSection(id: string): boolean {
+    return !!this.describeSection(id);
+  }
+  async getCategoryPhotoModes(): Promise<Record<string, string>> {
+    const c = await this.config.findOne({ key: 'category_photo_modes' }).lean();
+    const v = (c?.value as Record<string, string>) || {};
+    // Surface only valid category-like sections with a non-default mode (drops
+    // stale ids from a renamed/removed section silently).
+    const out: Record<string, string> = {};
+    for (const [id, m] of Object.entries(v)) {
+      if (this.isPhotoSection(id) && ListingsService.PHOTO_MODES.has(m) && m !== 'none') out[id] = m;
+    }
+    return out;
+  }
+  async setCategoryPhotoMode(id: string, mode: string): Promise<{ ok: true }> {
+    if (!this.isPhotoSection(id)) throw new BadRequestException(`Unknown category section "${id}".`);
+    if (!ListingsService.PHOTO_MODES.has(mode)) throw new BadRequestException(`Invalid photo mode "${mode}".`);
+    const c = await this.config.findOne({ key: 'category_photo_modes' }).lean();
+    const v: Record<string, string> = { ...((c?.value as Record<string, string>) || {}) };
+    if (mode === 'none') delete v[id];   // default is never stored
+    else v[id] = mode;
+    await this.config.findOneAndUpdate({ key: 'category_photo_modes' }, { value: v }, { upsert: true });
+    return { ok: true };
+  }
+
+  // "Enough Contact Notification" — a per-section DISTINCT-contact threshold. When
+  // a post in that section has been contacted by that many distinct people, the
+  // poster gets a WhatsApp (fired once, in AnalyticsService on the contact event).
+  // Stored as { sectionId: count } in app_config 'category_contact_alerts'; a
+  // section ABSENT from the map (or count 0) means "None" = no notification.
+  // Same section-id keying as the photo modes ("cat:homeservice", "kind:job_seeker",
+  // "sale:rent", …), so the one Category Setting page drives both.
+  async getCategoryContactAlerts(): Promise<Record<string, number>> {
+    const c = await this.config.findOne({ key: 'category_contact_alerts' }).lean();
+    const v = (c?.value as Record<string, number>) || {};
+    const out: Record<string, number> = {};
+    for (const [id, n] of Object.entries(v)) {
+      if (this.isPhotoSection(id) && Number(n) > 0) out[id] = Number(n);
+    }
+    return out;
+  }
+  async setCategoryContactAlert(id: string, count: number): Promise<{ ok: true }> {
+    if (!this.isPhotoSection(id)) throw new BadRequestException(`Unknown category section "${id}".`);
+    const n = Math.floor(Number(count));
+    if (!Number.isFinite(n) || n < 0 || n > 100000) throw new BadRequestException('Count must be 0–100000.');
+    const c = await this.config.findOne({ key: 'category_contact_alerts' }).lean();
+    const v: Record<string, number> = { ...((c?.value as Record<string, number>) || {}) };
+    if (n <= 0) delete v[id];   // "None" is never stored
+    else v[id] = n;
+    await this.config.findOneAndUpdate({ key: 'category_contact_alerts' }, { value: v }, { upsert: true });
+    return { ok: true };
+  }
+
   // ---- Login gate (admin Settings) -----------------------------------------
   // Thresholds enforced on contact reveals:
   //   time_limit_minutes  — cumulative app time before login (client-side, 0=off)
@@ -835,6 +906,8 @@ export class ListingsService implements OnModuleInit {
       status: isAdmin ? 'approved' : 'pending',
       approved_by: isAdmin ? ctx.userId : undefined,
       approved_at: isAdmin ? new Date() : undefined,
+      // Poster's UI language — drives the approval WhatsApp template (hi vs en).
+      lang: ctx.lang === 'hi' ? 'hi' : ctx.lang === 'en' ? 'en' : '',
       // audit
       posted_by_user_id: ctx.userId,
       posted_by_mobile: isAdmin ? '' : AuthService.normalizeMobile(ctx.userMobile),
@@ -1255,6 +1328,106 @@ export class ListingsService implements OnModuleInit {
     return { _id: id, pinned: !!(d as any).pinned };
   }
 
+  // ===== "Enough Contact Notification" — hide / reply / timeout ================
+
+  // Hide a post whose alert went unanswered (No, or the 6h / next-milestone
+  // timeout). Marked `contact_alert_hidden` so a LATER "Yes" can revive it.
+  async autoHideContactAlert(id: string): Promise<void> {
+    const d = await this.listings
+      .findOneAndUpdate(
+        { _id: id, contact_alert_pending: true },
+        { $set: { active: false, contact_alert_hidden: true, contact_alert_pending: false } },
+        { new: true },
+      )
+      .lean();
+    if (!d) return;
+    this.removeOgCard(id);
+    // eslint-disable-next-line no-console
+    console.log(`[contact-alert] auto-hid ${id} (no reply)`);
+  }
+
+  // Apply the poster's Yes/No to the milestone alert. Latest tap wins, fully
+  // reversible: NO hides; YES keeps live and REVIVES the post only if THIS feature
+  // hid it (never un-hides an admin/expiry hide). Idempotent on repeats.
+  async applyContactAlertReply(id: string, choice: 'yes' | 'no'): Promise<{ ok: boolean; action: string }> {
+    const d: any = await this.listings
+      .findById(id, { active: 1, status: 1, contact_alert_hidden: 1 })
+      .lean();
+    if (!d) return { ok: false, action: 'not_found' };
+
+    if (choice === 'no') {
+      await this.listings.updateOne(
+        { _id: id },
+        { $set: { active: false, contact_alert_hidden: true, contact_alert_pending: false } },
+      );
+      this.removeOgCard(id);
+      return { ok: true, action: 'hidden' };
+    }
+
+    // YES → keep live, clear the pending alert; revive only a feature-hidden post.
+    const patch: any = { contact_alert_pending: false };
+    let action = 'kept';
+    if (d.active === false && d.contact_alert_hidden) {
+      patch.active = true;
+      patch.contact_alert_hidden = false;
+      action = 'revived';
+    }
+    await this.listings.updateOne({ _id: id }, { $set: patch });
+    if (action === 'revived' && d.status === 'approved') this.warmOgCard(id);
+    return { ok: true, action };
+  }
+
+  // Correlate an inbound Yes/No to the post that asked (by the outbound message id
+  // it replied to, else by the sender's number among currently-pending alerts) and
+  // apply it.
+  async handleContactAlertReply(opts: {
+    fromPhone?: string; contextMsgId?: string; choice: 'yes' | 'no';
+  }): Promise<{ ok: boolean; action: string }> {
+    const last10 = (m?: string) => String(m || '').replace(/\D/g, '').slice(-10);
+    let target: any = null;
+
+    const msgId = String(opts.contextMsgId || '').trim();
+    if (msgId) target = await this.listings.findOne({ contact_alert_msg_id: msgId }, { _id: 1 }).lean();
+
+    if (!target && opts.fromPhone) {
+      const p10 = last10(opts.fromPhone);
+      const pending = await this.listings
+        .find({ contact_alert_pending: true }, { _id: 1, mobile: 1, posted_by_mobile: 1, contact_alert_sent_at: 1 })
+        .sort({ contact_alert_sent_at: -1 })
+        .lean();
+      target = pending.find((x: any) => last10(x.posted_by_mobile) === p10 || last10(x.mobile) === p10) || null;
+    }
+    if (!target) return { ok: false, action: 'no_match' };
+    return this.applyContactAlertReply(String(target._id), opts.choice);
+  }
+
+  // Durable capture of every raw WABA inbound payload (log-first, like BT) so the
+  // real Fortius shape can be inspected + the parser finalized. Never throws.
+  async logWabaInbound(body: any, meta: { query?: any; contentType?: string }): Promise<void> {
+    try {
+      const db = mongoose.connection.db;
+      if (db) {
+        await db.collection('waba_inbound_logs').insertOne({
+          at: new Date(), content_type: meta.contentType || '', query: meta.query || {}, body,
+        });
+      }
+    } catch { /* capture must never break the webhook */ }
+  }
+
+  private startContactAlertSweep(): void {
+    const run = () => this.sweepContactAlertTimeouts().catch(() => { /* best-effort */ });
+    run();                                   // once at boot
+    setInterval(run, 15 * 60 * 1000);        // then every 15 min
+  }
+  // Auto-hide posts whose alert has been pending, unanswered, for over 6 hours.
+  private async sweepContactAlertTimeouts(): Promise<void> {
+    const cutoff = new Date(Date.now() - 6 * 3600_000);
+    const stale = await this.listings
+      .find({ contact_alert_pending: true, contact_alert_sent_at: { $lte: cutoff } }, { _id: 1 })
+      .lean();
+    for (const d of stale) await this.autoHideContactAlert(String(d._id));
+  }
+
   // A user's own listings (any status, incl. hidden) for the "My Posts" page.
   async mine(userId: string): Promise<any[]> {
     return this.listings.find({ posted_by_user_id: userId },
@@ -1581,13 +1754,45 @@ export class ListingsService implements OnModuleInit {
     return { ok: true };
   }
   async setStatus(id: string, status: 'approved' | 'rejected', adminId: string) {
+    // Capture the prior status so we only fire the "approved" WhatsApp on the
+    // real pending→approved transition, never again on a re-approve.
+    const before = await this.listings.findById(id, { status: 1 }).lean();
     const patch: any = { status };
     if (status === 'approved') { patch.approved_by = adminId; patch.approved_at = new Date(); }
     const d = await this.listings.findByIdAndUpdate(id, patch, { new: true }).lean();
     if (!d) throw new NotFoundException('Listing not found');
     // Approved → pre-render the card; rejected → remove any cached one.
     if (status === 'approved') this.warmOgCard(id); else this.removeOgCard(id);
+    // Fire-and-forget: notify the poster on WhatsApp that their post is live.
+    // Never block or fail the approval on a WhatsApp hiccup.
+    if (status === 'approved' && before?.status !== 'approved') {
+      void this.notifyPostApproved(d).catch((e) =>
+        // eslint-disable-next-line no-console
+        console.error('[whatsapp] post-approved notify failed:', (e as Error)?.message || e),
+      );
+    }
     return { _id: String(d._id), status: d.status };
+  }
+
+  // Build the vars for the "post approved & published" WhatsApp and send it in
+  // the POSTER's language. Recipient = the submitter's own number (falls back to
+  // the listing's contact number). No-ops quietly if WABA isn't configured.
+  private async notifyPostApproved(d: any): Promise<void> {
+    const to = String(d.posted_by_mobile || d.mobile || '').trim();
+    if (!to) return;
+    const lang: 'en' | 'hi' = d.lang === 'hi' ? 'hi' : 'en';
+    // {{1}} — the post title (masked if the poster hid it). {{2}} — where it's
+    // published: the (localized) category + city. {{url}} — the public permalink.
+    const title = maskTitle(d.title, d.hide_title) || 'WhatsLocal';
+    const cat = d.category
+      ? (lang === 'hi' ? CATEGORY_BY_LABEL[d.category]?.labelHi || d.category : d.category)
+      : '';
+    const publishedIn = [cat, d.city].filter(Boolean).join(' · ') || d.city || 'WhatsLocal';
+    // The template's URL button is Dynamic with base "http://whatslocal.in/{{1}}",
+    // so the variable is the PATH ONLY (no domain) — else the link doubles.
+    const citySlug = String(d.city || 'gondia').toLowerCase().replace(/\s+/g, '-');
+    const path = d.slug ? `${citySlug}/${d.slug}` : `l/${String(d._id)}`;
+    await this.whatsapp.sendPostApproved(to, title, publishedIn, path, lang);
   }
 
   // ---- Social link preview (Open Graph) for crawlers (WhatsApp/FB/Telegram…) --

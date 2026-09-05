@@ -79,7 +79,8 @@ export function AdminLayout() {
           <NavLink to="/admin/posts" className={itemCls}>Posts</NavLink>
 
           <div className="px-3 pt-3 pb-0.5 text-[11px] text-slate-400">Settings</div>
-          <NavLink to="/admin/sequence" className={itemCls}>Category Sequencing</NavLink>
+          <NavLink to="/admin/sequence" className={itemCls}>Category Setting</NavLink>
+          <NavLink to="/admin/whatsapp" className={itemCls}>WhatsApp Test</NavLink>
           <button type="button" onClick={() => setLimits(true)}
             className="w-full flex items-center px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100">Login Limits</button>
           <button type="button" onClick={() => setContact(true)}

@@ -12,6 +12,7 @@ import { PushModule } from './push/push.module';
 import { ComplaintsModule } from './complaints/complaints.module';
 import { TripsModule } from './trips/trips.module';
 import { ProfileModule } from './profile/profile.module';
+import { WhatsappModule } from './whatsapp/whatsapp.module';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
@@ -36,6 +37,7 @@ if (!MONGODB_URI) {
     ComplaintsModule,
     TripsModule,
     ProfileModule,
+    WhatsappModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

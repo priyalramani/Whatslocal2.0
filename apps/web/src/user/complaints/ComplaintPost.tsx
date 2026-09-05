@@ -6,6 +6,7 @@ import { currentSession } from '../../lib/userAuth';
 import { uploadPhoto, mediaUrl } from '../../lib/api';
 import { NameLoginGate } from './NameLoginGate';
 import { getWards, getBodies, createComplaint, COMPLAINT_CATEGORIES, type WardRow, type Body } from '../../lib/complaints';
+import { getCategoryPhotoModes } from '../../lib/listings';
 
 const input = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand';
 
@@ -26,6 +27,11 @@ export function ComplaintPost() {
   // again if the token goes stale at submit ('retry', which re-submits after).
   const [gate, setGate] = useState<'entry' | 'retry' | null>('entry');
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
+  // Photo requirement for Ward Complaints (admin Category Setting → special:complaints).
+  const [photoModes, setPhotoModes] = useState<Record<string, string>>({});
+  useEffect(() => { getCategoryPhotoModes().then(setPhotoModes).catch(() => {}); }, []);
+  const photoReq = photoModes['special:complaints'] || 'none';
+  const hasPhotos = !!(f.photos?.length);
 
   // Bodies (towns) first; default to the one from the query or the first town.
   useEffect(() => { getBodies(city.name).then((bs) => { setBodies(bs); setF((p: any) => p.body ? p : { ...p, body: bs[0]?.name || '' }); }).catch(() => {}); }, [city.name]);
@@ -44,6 +50,7 @@ export function ComplaintPost() {
     if (!f.ward) return setErr(t('cmp.err.ward'));
     if (!f.category) return setErr(t('cmp.err.category'));
     if (f.title.trim().length < 4) return setErr(t('cmp.err.title'));
+    if (photoReq === 'compulsory' && !hasPhotos) return setErr(t('post.err.photoReq'));
     if (!agree) return setErr(t('cmp.err.agree'));
     // Token gone stale → re-auth via the gate, then re-submit. Name comes from
     // the account (set once at login), never from the form.
@@ -98,7 +105,8 @@ export function ComplaintPost() {
             <input className={`${input} mt-1`} value={f.area} onChange={(e) => set('area', e.target.value)} placeholder={t('cmp.locationPh')} /></label>
 
           <div>
-            <span className="text-sm text-slate-600">{t('cmp.photos')}</span>
+            <span className="text-sm text-slate-600">{t('cmp.photos')}{photoReq === 'compulsory' && <span className="text-red-500"> *</span>}</span>
+            {photoReq === 'soft' && !hasPhotos && <div className="text-[12.5px] font-medium text-amber-600 mt-0.5">📷 {t('post.photos.softWarn')}</div>}
             <div className="flex flex-wrap gap-2 mt-1">
               {(f.photos || []).map((k: string, i: number) => (
                 <div key={k} className="relative">

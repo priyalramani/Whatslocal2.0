@@ -6,6 +6,7 @@ import {
   getFullListing, updateMyListing, adminGetListing, adminUpdateListing,
   approveListing, rejectListing, setMyListingActive, setListingActive,
   checkDuplicate, type DupPosting,
+  getCategoryPhotoModes,
 } from '../lib/listings';
 import { postTypeToKind } from '@whatslocal/types';
 import { maybeAskPush } from '../lib/push';
@@ -157,13 +158,15 @@ const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 // (f.photos). Uploads happen immediately on select; each tile shows a spinner
 // while uploading and a × to remove once done. First photo = cover.
 function PhotoPicker({
-  keys, setKeys, canUpload, t, setErr,
+  keys, setKeys, canUpload, t, setErr, err, warn,
 }: {
   keys: string[];
   setKeys: (next: string[]) => void;
   canUpload: boolean;
   t: (k: string, vars?: any) => string;
   setErr: (s: string) => void;
+  err?: string;   // compulsory-photo error (shown + scrolled to on submit)
+  warn?: string;  // soft-warning text (short, shown while no photo)
 }) {
   // Pending uploads (not yet keyed) — rendered as dimmed spinner tiles.
   const [pending, setPending] = useState(0);
@@ -207,8 +210,9 @@ function PhotoPicker({
 
   const atMax = keys.length + pending >= MAX_PHOTOS;
   return (
-    <Field label={t('post.photos.label')}>
+    <Field label={t('post.photos.label')} name="photos" err={err}>
       <div className="text-[11px] text-slate-400 mb-2">{t('post.photos.hint')} · {t('post.photos.max')}</div>
+      {warn && <div className="text-[12.5px] font-medium text-amber-600 mb-2">📷 {warn}</div>}
       <div className="flex flex-wrap gap-2">
         {keys.map((k, i) => (
           <div key={k} className="relative h-[72px] w-[72px] rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
@@ -267,6 +271,37 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
   const [toast, setToast] = useState<string | null>(null);
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2000); };
   const [f, setF] = useState<any>({ title: '', mobile: session?.mobile || '', pincode: '441601', hide_title: false, call_ok: true, whatsapp_ok: true, alt_phone: '', whatsapp: '', ...(sp.get('deal') === 'rent' ? { sale_or_rent: 'rent' } : {}) });
+  // Per-category photo requirement (admin "Category Setting"). { catKey: mode }.
+  const [photoModes, setPhotoModes] = useState<Record<string, string>>({});
+  useEffect(() => { getCategoryPhotoModes().then(setPhotoModes).catch(() => {}); }, []);
+  // Strictest photo requirement for what's being posted. Modes are keyed by the
+  // admin section id: business categories → `cat:<key>`, Buy-Sell-Rent → the
+  // `sale:sale` / `sale:rent` section. compulsory > soft > none.
+  const photoReq: 'compulsory' | 'soft' | 'none' = (() => {
+    const ids: string[] = [];
+    if (postType === 'business') {
+      const labels: string[] = f.categories || (f.category ? [f.category] : []);
+      for (const lbl of labels) {
+        const key = (CATEGORY_BY_LABEL as any)[lbl]?.key;
+        if (key) ids.push(`cat:${key}`);
+      }
+    } else if (postType === 'sell') {
+      ids.push(`sale:${f.sale_or_rent === 'rent' ? 'rent' : 'sale'}`);
+      ids.push('ptype:sell'); // legacy combined Sell/Rent section, if configured
+    } else {
+      // Jobs / Job Seekers / Happenings → their kind section
+      // (hiring→job_opening, job_seeker→job_seeker, happening→happening).
+      ids.push(`kind:${postTypeToKind(postType)}`);
+    }
+    let req: 'compulsory' | 'soft' | 'none' = 'none';
+    for (const id of ids) {
+      const m = photoModes[id];
+      if (m === 'compulsory') return 'compulsory';
+      if (m === 'soft') req = 'soft';
+    }
+    return req;
+  })();
+  const hasPhotos = !!(f.photos?.length);
   // ONE number, plus what it's good for. Both channels are on by default —
   // which is true for almost everyone. Unticking a channel opens an optional
   // cell for a DIFFERENT number that serves it (f.alt_phone for calls,
@@ -498,6 +533,8 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
       }
     }
     if (!isJob && keywordCount === 0) return fail('keywords', t('post.err.keyword'));
+    // A category set to "Compulsory" (admin Category Setting) requires a photo.
+    if (photoReq === 'compulsory' && !hasPhotos) return fail('photos', t('post.err.photoReq'));
     return true;
   }
 
@@ -812,7 +849,9 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
             keys={f.photos || []}
             setKeys={(next) => set('photos', next)}
             canUpload={admin || !!session}
-            t={t} setErr={setErr} />
+            t={t} setErr={setErr}
+            err={fe('photos')}
+            warn={photoReq === 'soft' && !hasPhotos ? t('post.photos.softWarn') : ''} />
 
           {postType === 'business' && (
             <CategoryPicker f={f} setF={setF} query={catQuery} setQuery={setCatQuery}

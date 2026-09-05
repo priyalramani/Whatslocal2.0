@@ -10,6 +10,7 @@ import { AppConfig, AppConfigSchema } from './config.schema';
 import { Visibility, VisibilitySchema } from './visibility.schema';
 import { TagsModule } from '../tags/tags.module';
 import { UtilityModule } from '../utility/utility.module';
+import { WhatsappModule } from '../whatsapp/whatsapp.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { UtilityModule } from '../utility/utility.module';
     ]),
     TagsModule, // for TagsService (keyword name resolution)
     UtilityModule, // for PincodeService (cached pin → city/district/state)
+    WhatsappModule, // for WhatsappService (WABA notify on approval)
   ],
   controllers: [ListingsController],
   providers: [ListingsService],

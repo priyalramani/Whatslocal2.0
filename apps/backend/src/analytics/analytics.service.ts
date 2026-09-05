@@ -2,12 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import type { AnalyticsEventInput, AnalyticsSummary, DeviceInfo } from '@whatslocal/types';
-import { maskTitle } from '@whatslocal/types';
+import { maskTitle, CATEGORY_BY_LABEL } from '@whatslocal/types';
 import { AnalyticsEvent, AnalyticsEventDocument } from './analytics.schema';
 import { Listing, ListingDocument } from '../listings/listing.schema';
 import { VisitorProfile, VisitorProfileDocument } from '../profile/profile.schema';
-import { toPublic } from '../listings/listings.service';
+import { AppConfig, AppConfigDocument } from '../listings/config.schema';
+import { toPublic, ListingsService } from '../listings/listings.service';
 import { AuthService } from '../auth/auth.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 
 const VISITORS_PAGE = 50;
 
@@ -58,7 +60,10 @@ export class AnalyticsService {
     @InjectModel(AnalyticsEvent.name) private readonly model: Model<AnalyticsEventDocument>,
     @InjectModel(Listing.name) private readonly listings: Model<ListingDocument>,
     @InjectModel(VisitorProfile.name) private readonly profiles: Model<VisitorProfileDocument>,
+    @InjectModel(AppConfig.name) private readonly config: Model<AppConfigDocument>,
     private readonly auth: AuthService,
+    private readonly whatsapp: WhatsappService,
+    private readonly listingsSvc: ListingsService,
   ) {}
 
   // Gender lookup for the reports. Scoped to the ids on the report so it stays
@@ -103,6 +108,103 @@ export class AnalyticsService {
       device,
       ip,
     });
+    // A real contact action (call / WhatsApp / copy) may push a post past its
+    // category's "Enough Contact Notification" threshold — check, fire-and-forget.
+    if (
+      input.type === 'contact_click' &&
+      CONTACTED_TARGETS.includes(String(input.target)) &&
+      input.listing_id
+    ) {
+      void this.maybeContactAlert(String(input.listing_id)).catch((e) =>
+        // eslint-disable-next-line no-console
+        console.error('[contact-alert] check failed:', (e as Error)?.message || e),
+      );
+    }
+  }
+
+  // Section ids a listing belongs to, matching the Category Setting page keys
+  // ("cat:<key>", "kind:<kind>", "sale:<sale|rent>") — so we can look up its
+  // "Enough Contact Notification" threshold.
+  private sectionIdsForListing(d: any): string[] {
+    if (!d) return [];
+    if (d.kind === 'business') {
+      const cats: string[] = (d.categories?.length ? d.categories : [d.category]).filter(Boolean);
+      return cats.map((c) => CATEGORY_BY_LABEL[c]?.key).filter(Boolean).map((k) => `cat:${k}`);
+    }
+    if (d.kind === 'job_opening' || d.kind === 'job_seeker' || d.kind === 'happening') return [`kind:${d.kind}`];
+    if (d.post_type === 'sell' || d.sale_or_rent) return [`sale:${d.sale_or_rent === 'rent' ? 'rent' : 'sale'}`];
+    return [];
+  }
+
+  // Distinct people who actually contacted this listing (call/whatsapp/copy).
+  private async distinctContactCount(listingId: string): Promise<number> {
+    const ids = await this.model.distinct('visitor_id', {
+      type: 'contact_click', target: { $in: CONTACTED_TARGETS }, listing_id: listingId,
+    });
+    return ids.filter(Boolean).length;
+  }
+
+  // The "Enough Contact Notification" threshold N for a post (smallest positive
+  // among its sections; 0 = none). Read live so admin changes take effect.
+  private async contactThresholdFor(d: any): Promise<number> {
+    const sections = this.sectionIdsForListing(d);
+    if (!sections.length) return 0;
+    const c = await this.config.findOne({ key: 'category_contact_alerts' }).lean();
+    const map = (c?.value as Record<string, number>) || {};
+    const ns = sections.map((s) => Number(map[s])).filter((n) => n > 0);
+    return ns.length ? Math.min(...ns) : 0;
+  }
+
+  // Milestone alerts: fire at each multiple of N (N, 2N, 3N…), one pending at a
+  // time. While a pending alert is ignored, reaching the NEXT multiple auto-hides
+  // the post (the 6h timeout is swept separately). See docs/WHATSAPP.md.
+  private async maybeContactAlert(listingId: string): Promise<void> {
+    const d: any = await this.listings
+      .findById(listingId, {
+        title: 1, hide_title: 1, kind: 1, post_type: 1, sale_or_rent: 1, category: 1,
+        categories: 1, city: 1, slug: 1, mobile: 1, posted_by_mobile: 1, lang: 1, active: 1,
+        contact_alert_pending: 1, contact_alert_milestone: 1,
+      })
+      .lean();
+    if (!d || d.active === false) return;               // already hidden → no alerts
+
+    const N = await this.contactThresholdFor(d);
+    if (!N) return;
+    const distinct = await this.distinctContactCount(listingId);
+    const lastM = Number(d.contact_alert_milestone) || 0;
+
+    // An alert is already awaiting a reply.
+    if (d.contact_alert_pending) {
+      // Ignored until the next multiple → auto-hide (no consent = take it down).
+      if (distinct >= lastM + N) await this.listingsSvc.autoHideContactAlert(listingId);
+      return;
+    }
+
+    // Fire at the highest unreached multiple ≤ distinct (don't spam skipped ones).
+    if (distinct < lastM + N) return;
+    const fireAt = Math.floor(distinct / N) * N;
+
+    // Win the race to fire this milestone exactly once.
+    const won = await this.listings
+      .findOneAndUpdate(
+        { _id: listingId, contact_alert_pending: { $ne: true }, contact_alert_milestone: lastM },
+        { $set: { contact_alert_pending: true, contact_alert_milestone: fireAt, contact_alert_sent_at: new Date() } },
+      )
+      .lean();
+    if (!won) return; // someone else fired it
+
+    const to = String(d.posted_by_mobile || d.mobile || '').trim();
+    if (!to) return;
+    const lang: 'en' | 'hi' = d.lang === 'hi' ? 'hi' : 'en';
+    const title = maskTitle(d.title, d.hide_title) || 'WhatsLocal';
+    const base = (process.env.PUBLIC_BASE_URL || 'https://whatslocal.in').replace(/\/$/, '');
+    const citySlug = String(d.city || 'gondia').toLowerCase().replace(/\s+/g, '-');
+    const url = d.slug ? `${base}/${citySlug}/${d.slug}` : `${base}/l/${String(d._id || listingId)}`;
+    const res = await this.whatsapp.sendContactMilestone(to, title, fireAt, url, lang, listingId);
+    // Store the sent message id so the Yes/No reply can be correlated to this post.
+    if (res && (res as any).providerMessageId) {
+      await this.listings.updateOne({ _id: listingId }, { $set: { contact_alert_msg_id: (res as any).providerMessageId } });
+    }
   }
 
   // Identity-linking: when a visitor logs in, stamp their accumulated anonymous

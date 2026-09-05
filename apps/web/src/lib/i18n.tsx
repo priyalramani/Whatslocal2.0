@@ -636,6 +636,9 @@ const S: Record<string, Entry> = {
   'post.photos.cover': { en: 'Cover', hi: 'कवर' },
   'post.photos.hint': { en: 'First photo shows when shared on WhatsApp.', hi: 'WhatsApp पर शेयर करने पर पहली फोटो दिखती है।' },
   'post.photos.loginFirst': { en: 'Log in to add photos', hi: 'फोटो जोड़ने के लिए लॉगिन करें' },
+  // Per-category photo requirement (admin Category Setting). Kept very short.
+  'post.photos.softWarn': { en: 'A photo helps a lot.', hi: 'फोटो लगाना बेहतर है।' },
+  'post.err.photoReq': { en: 'Photo required.', hi: 'फोटो ज़रूरी है।' },
   'post.photos.uploading': { en: 'Uploading…', hi: 'अपलोड हो रहा है…' },
   'post.photos.tooBig': { en: 'Image too large — max 8 MB', hi: 'फोटो बहुत बड़ी है — मैक्स 8 MB' },
   'post.photos.max': { en: 'Up to 5 photos', hi: '5 फोटो तक' },

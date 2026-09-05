@@ -1,6 +1,6 @@
 import {
   Body, Controller, Get, Header, Param, Post, Put, Query, Req, Headers, UseGuards, StreamableFile,
-  UploadedFile, UseInterceptors,
+  UploadedFile, UseInterceptors, HttpCode,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
@@ -9,6 +9,46 @@ import { ListingsService } from './listings.service';
 import { AuthService } from '../auth/auth.service';
 import { AdminGuard, JwtAuthGuard } from '../auth/guards';
 import { CreateListingDto, SearchQueryDto, RevealDto, ReportDto, AdminUpdateListingDto } from './dto';
+
+// Best-effort parse of a WABA inbound webhook into a Yes/No reply. Handles the
+// Meta Cloud API shape (entry[].changes[].value.messages[]) with a template
+// quick-reply button (`button.text`/`.payload`) or an interactive `button_reply`,
+// reading `context.id` (the id of OUR outbound alert) + the sender `from`.
+// PENDING a real Fortius sample — extend the walk once the true shape is known.
+function parseInboundReply(
+  body: any,
+): { fromPhone?: string; contextMsgId?: string; choice: 'yes' | 'no' } | null {
+  const YES = /(^|\b)(yes|y|haan|ha|haa|keep|continue|rakho|rakhna)\b|हाँ|हा|रखो/i;
+  const NO = /(^|\b)(no|n|nahi|nahin|hide|hata|hatao|band)\b|नहीं|नही|हटा|बंद/i;
+  const decide = (s?: string): 'yes' | 'no' | null =>
+    !s ? null : NO.test(s) ? 'no' : YES.test(s) ? 'yes' : null;
+
+  // Find the first inbound message anywhere in the payload (shape-tolerant).
+  let msg: any = null;
+  const visit = (n: any): void => {
+    if (msg || !n || typeof n !== 'object') return;
+    if (Array.isArray(n)) { for (const x of n) visit(x); return; }
+    if (n.from && (n.button || n.interactive || n.text || n.type)) { msg = n; return; }
+    for (const v of Object.values(n)) visit(v);
+  };
+  visit(body);
+  if (!msg) return null;
+
+  // Read BOTH the button text and its payload (a quick-reply tap returns the
+  // payload; the visible label may differ) so either can drive the decision.
+  const btnText = [
+    msg.button?.text, msg.button?.payload,
+    msg.interactive?.button_reply?.title, msg.interactive?.button_reply?.id,
+    msg.text?.body, typeof msg.text === 'string' ? msg.text : '',
+  ].filter(Boolean).join(' ');
+  const choice = decide(String(btnText));
+  if (!choice) return null;
+  return {
+    fromPhone: String(msg.from || ''),
+    contextMsgId: String(msg.context?.id || msg.context?.message_id || ''),
+    choice,
+  };
+}
 
 @Controller()
 export class ListingsController {
@@ -22,9 +62,9 @@ export class ListingsController {
   @Post('listings')
   @UseGuards(JwtAuthGuard)
   @Throttle({ default: { ttl: 60_000, limit: 6 } })
-  create(@Body() dto: CreateListingDto, @Req() req: any) {
+  create(@Body() dto: CreateListingDto, @Req() req: any, @Headers('x-lang') lang?: string) {
     return this.listings.create(dto, {
-      userId: req.user.id, role: req.user.role, userMobile: req.user.mobile || '',
+      userId: req.user.id, role: req.user.role, userMobile: req.user.mobile || '', lang,
     });
   }
 
@@ -256,6 +296,74 @@ export class ListingsController {
   @UseGuards(AdminGuard)
   setHomeSequence(@Body() body: { sequence: string[] }) {
     return this.listings.setHomeSequence(body?.sequence || []);
+  }
+
+  // Per-category photo requirement. PUBLIC read (the posting form enforces it);
+  // admin-only write from the Category Setting page.
+  @Get('listings/categories/photo-modes')
+  categoryPhotoModes() {
+    return this.listings.getCategoryPhotoModes();
+  }
+  @Put('admin/category-photo-modes')
+  @UseGuards(AdminGuard)
+  setCategoryPhotoMode(@Body() body: { key: string; mode: string }) {
+    return this.listings.setCategoryPhotoMode(body?.key || '', body?.mode || 'none');
+  }
+
+  // "Enough Contact Notification" thresholds — read for the admin page, admin write.
+  @Get('listings/categories/contact-alerts')
+  categoryContactAlerts() {
+    return this.listings.getCategoryContactAlerts();
+  }
+  @Put('admin/category-contact-alerts')
+  @UseGuards(AdminGuard)
+  setCategoryContactAlert(@Body() body: { key: string; count: number }) {
+    return this.listings.setCategoryContactAlert(body?.key || '', Number(body?.count) || 0);
+  }
+
+  // ---- WABA inbound webhook: the poster's Yes/No on a contact-milestone alert --
+  // PUBLIC (Fortius/Meta call it). GET = subscription verify (Meta hub-challenge
+  // style, harmless if unused). POST = an inbound message; we extract the Yes/No
+  // and apply it to the post. NOTE: the exact inbound payload shape is PENDING a
+  // real sample from Fortius — parseInboundReply is best-effort + logs the raw
+  // body so it can be finalized. Optional shared secret via WABA_WEBHOOK_VERIFY_TOKEN.
+  @Get('whatsapp/webhook')
+  @Header('Content-Type', 'text/plain')
+  verifyWebhook(@Query() q: Record<string, string>): string {
+    const token = process.env.WABA_WEBHOOK_VERIFY_TOKEN || '';
+    // Optional shared secret: accept either Fortius's ?token= or Meta's hub.verify_token.
+    if (token && q.token !== token && q['hub.verify_token'] !== token) return 'denied';
+    const challenge = q['hub.challenge'];
+    return challenge !== undefined ? String(challenge) : 'ok';
+  }
+
+  @Post('whatsapp/webhook')
+  @HttpCode(200)
+  async inboundWebhook(
+    @Body() body: any,
+    @Query() q: Record<string, string>,
+    @Headers('content-type') ct?: string,
+  ): Promise<{ ok: boolean }> {
+    const token = process.env.WABA_WEBHOOK_VERIFY_TOKEN || '';
+    if (token && q?.token !== token) return { ok: true }; // ignore unauthenticated calls, but never 4xx-storm
+    // Capture the raw payload first (durable), then parse — so we can finalize the
+    // parser against real Fortius payloads.
+    await this.listings.logWabaInbound(body, { query: q, contentType: ct });
+    try {
+      const parsed = parseInboundReply(body);
+      if (parsed) {
+        const r = await this.listings.handleContactAlertReply(parsed);
+        // eslint-disable-next-line no-console
+        console.log(`[whatsapp] inbound ${parsed.choice} from ${parsed.fromPhone || '?'} → ${r.action}`);
+      } else {
+        // eslint-disable-next-line no-console
+        console.log('[whatsapp] inbound webhook (no Yes/No reply parsed):', JSON.stringify(body)?.slice(0, 600));
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[whatsapp] inbound webhook error:', (e as Error)?.message || e);
+    }
+    return { ok: true }; // always 200 so the provider doesn't retry-storm
   }
 
   // Login-gate thresholds. PUBLIC read (the client enforces the time gate);

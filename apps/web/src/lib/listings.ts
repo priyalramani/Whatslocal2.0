@@ -76,6 +76,18 @@ export const adminGetHomeSequence = () => api<{ sequence: { id: string; type: st
 export const adminSaveHomeSequence = (sequence: string[]) =>
   api('/admin/home-sequence', { method: 'PUT', body: JSON.stringify({ sequence }) });
 
+// Per-category photo requirement (Category Setting page). Map is { catKey: mode }
+// where mode ∈ 'compulsory' | 'soft'; a key absent from the map = no requirement.
+export const getCategoryPhotoModes = () => api<Record<string, string>>('/listings/categories/photo-modes');
+export const adminSetCategoryPhotoMode = (key: string, mode: string) =>
+  api('/admin/category-photo-modes', { method: 'PUT', body: JSON.stringify({ key, mode }) });
+
+// "Enough Contact Notification" (Category Setting page). Map is { sectionId: count };
+// a section absent from the map = None (no notification). count 0 clears it.
+export const getCategoryContactAlerts = () => api<Record<string, number>>('/listings/categories/contact-alerts');
+export const adminSetCategoryContactAlert = (key: string, count: number) =>
+  api('/admin/category-contact-alerts', { method: 'PUT', body: JSON.stringify({ key, count }) });
+
 export const visitorsToday = (city?: string) =>
   api<{ count: number }>(`/stats/visitors-today${city ? `?city=${encodeURIComponent(city)}` : ''}`);
 export const postingsCount = (city?: string) =>

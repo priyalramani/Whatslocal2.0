@@ -119,9 +119,20 @@ export class Listing {
   // ---- metadata / audit ----
   @Prop({ type: String, default: null, index: true }) posted_by_user_id: string | null;
   @Prop({ default: '' }) posted_by_mobile: string;   // poster's own logged-in number
+  // Poster's UI language when they created the post ('en' | 'hi' | '') — used to
+  // pick the approval WhatsApp template. Empty on old rows → falls back to English.
+  @Prop({ default: '' }) lang: string;
   @Prop({ default: 'web' }) source: 'web' | 'admin';
   @Prop({ type: String, default: null }) approved_by: string | null;
   @Prop({ type: Date, default: null }) approved_at: Date | null;
+  // ---- "Enough Contact Notification" state (per-post) ----
+  // Fires at each multiple of the category threshold N (N, 2N, 3N…), one alert
+  // pending at a time. See docs/WHATSAPP.md.
+  @Prop({ default: false }) contact_alert_pending: boolean;   // awaiting the poster's Yes/No
+  @Prop({ default: 0 }) contact_alert_milestone: number;      // distinct-count of the last alert sent (M)
+  @Prop({ type: Date, default: null }) contact_alert_sent_at: Date | null; // for the 6h timeout
+  @Prop({ default: false }) contact_alert_hidden: boolean;    // hidden BY this feature (No / timeout) — a later Yes may revive it
+  @Prop({ default: '' }) contact_alert_msg_id: string;        // outbound WhatsApp id, to correlate the reply
 
   // Denormalized text for safe search (title + keyword names/synonyms + description).
   @Prop({ default: '' }) search_blob: string;
