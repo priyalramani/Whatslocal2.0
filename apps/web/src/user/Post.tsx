@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import type { PostType } from '@whatslocal/types';
 import {
   createListing, adminCreateListing, pinLookup,
   getFullListing, updateMyListing, adminGetListing, adminUpdateListing,
   approveListing, rejectListing, setMyListingActive, setListingActive,
   checkDuplicate, type DupPosting,
-  getCategoryPhotoModes,
+  getCategoryPhotoModes, refileListing,
 } from '../lib/listings';
 import { postTypeToKind } from '@whatslocal/types';
 import { maybeAskPush } from '../lib/push';
@@ -249,6 +249,12 @@ function PhotoPicker({
 export function Post({ admin: adminProp = false }: { admin?: boolean }) {
   const { id: editId } = useParams();
   const nav = useNavigate();
+  // Admin "Re-file as another type" hands the corrected form its seed via router
+  // state (kept out of the URL — no PII in query strings). Present only on the
+  // fresh /admin/post the Re-file button navigates to.
+  const refileState = (useLocation().state as any)?.refile as
+    { fromId: string; cat?: string; jobMode?: string; seed?: any } | undefined;
+  const refileFromRef = useRef<string | null>(refileState?.fromId || null);
   const { t, lang } = useT();
   const isEdit = !!editId;
   // A logged-in admin is treated as admin on ANY route (incl. the public /post),
@@ -258,10 +264,15 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
   const [dobText, setDobText] = useState('');   // admin quick-entry DOB (dd/mm/yy)
   // Pre-select the category when arriving from a home bucket (/post?cat=business).
   const [sp] = useSearchParams();
-  const initCat = (CATS as readonly { value: string }[]).some((c) => c.value === sp.get('cat')) ? (sp.get('cat') as Cat) : 'jobs';
+  const initCat = (refileState?.cat as Cat)
+    || ((CATS as readonly { value: string }[]).some((c) => c.value === sp.get('cat')) ? (sp.get('cat') as Cat) : 'jobs');
   const [cat, setCat] = useState<Cat>(initCat);
   // Deep-linked sub-type (from the post-prompt CTAs): ?mode=hiring, ?deal=rent.
-  const [jobMode, setJobMode] = useState<'job_seeker' | 'hiring'>(sp.get('mode') === 'hiring' ? 'hiring' : 'job_seeker');
+  // A re-file into Jobs carries the seeker/hiring choice explicitly.
+  const [jobMode, setJobMode] = useState<'job_seeker' | 'hiring'>(
+    refileState?.jobMode === 'hiring' ? 'hiring'
+      : refileState?.jobMode === 'job_seeker' ? 'job_seeker'
+      : sp.get('mode') === 'hiring' ? 'hiring' : 'job_seeker');
   const derived: PostType = cat === 'jobs' ? jobMode : cat;
   const [origPostType, setOrigPostType] = useState<string>('');
   const postType: PostType = derived;
@@ -270,7 +281,7 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
   const [statusVal, setStatusVal] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2000); };
-  const [f, setF] = useState<any>({ title: '', mobile: session?.mobile || '', pincode: '441601', hide_title: false, call_ok: true, whatsapp_ok: true, alt_phone: '', whatsapp: '', ...(sp.get('deal') === 'rent' ? { sale_or_rent: 'rent' } : {}) });
+  const [f, setF] = useState<any>({ title: '', mobile: session?.mobile || '', pincode: '441601', hide_title: false, call_ok: true, whatsapp_ok: true, alt_phone: '', whatsapp: '', ...(sp.get('deal') === 'rent' ? { sale_or_rent: 'rent' } : {}), ...(refileState?.seed || {}) });
   // Per-category photo requirement (admin "Category Setting"). { catKey: mode }.
   const [photoModes, setPhotoModes] = useState<Record<string, string>>({});
   useEffect(() => { getCategoryPhotoModes().then(setPhotoModes).catch(() => {}); }, []);
@@ -308,8 +319,8 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
   // f.whatsapp for WhatsApp); leaving that blank simply means the channel is
   // off. The main number stays the poster's own, so OTP/ownership and duplicate
   // detection never depend on which channels they picked.
-  const [chCall, setChCall] = useState(true);
-  const [chWa, setChWa] = useState(true);
+  const [chCall, setChCall] = useState(refileState?.seed ? refileState.seed.call_ok !== false : true);
+  const [chWa, setChWa] = useState(refileState?.seed ? refileState.seed.whatsapp_ok !== false : true);
   const [keywords, setKeywords] = useState<string[]>([]);
   const keywordCount = keywords.length;
   // Category keys whose suggested keywords are currently reflected in `keywords`.
@@ -600,7 +611,13 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
       setTimeout(() => nav(admin ? '/admin/user-view' : `/l/${editId}`), 900);
       return;
     }
-    await (admin ? adminCreateListing : createListing)(buildPayload(mobileToken));
+    // Re-file (admin moved a mis-posted listing here) goes through the refile
+    // endpoint, which also retires the original; otherwise a normal create.
+    if (refileFromRef.current) {
+      await refileListing(refileFromRef.current, buildPayload(mobileToken));
+    } else {
+      await (admin ? adminCreateListing : createListing)(buildPayload(mobileToken));
+    }
     setDone(true);
     maybeAskPush('post');   // best moment to offer alerts — they just invested
   }
@@ -637,6 +654,25 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
   async function decide(fn: (id: string) => Promise<any>) {
     if (!editId) return;
     await fn(editId); nav('/admin/approvals');
+  }
+
+  // Admin "Re-file as another type": open the CORRECT form (fresh /admin/post)
+  // pre-seeded with the carry-over fields, remembering which listing to retire.
+  // Kinds have different field sets, so we re-enter through the right form rather
+  // than mutate in place; on submit, doSubmit calls the refile endpoint.
+  const REFILE_MAP: Record<string, { cat: string; jobMode?: string }> = {
+    business: { cat: 'business' }, sell: { cat: 'sell' }, happening: { cat: 'happening' },
+    job_seeker: { cat: 'jobs', jobMode: 'job_seeker' }, hiring: { cat: 'jobs', jobMode: 'hiring' },
+  };
+  function doRefile(target: string) {
+    if (!editId) return;
+    const tgt = REFILE_MAP[target]; if (!tgt) return;
+    const seed = {
+      title: f.title || '', mobile: f.mobile || '', alt_phone: f.alt_phone || '', whatsapp: f.whatsapp || '',
+      call_ok: chCall, whatsapp_ok: chWa, hide_title: !!f.hide_title,
+      pincode: f.pincode || '441601', photos: f.photos || [], description: f.description || '',
+    };
+    nav('/admin/post', { state: { refile: { fromId: editId, cat: tgt.cat, jobMode: tgt.jobMode, seed } } });
   }
 
   // Enter OTP → log in (new user) or verify the other number, then submit.
@@ -810,6 +846,26 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
               </select>
             )}
           </Field>
+
+          {/* Admin: move a mis-posted listing to the correct type. Kinds have
+              different fields, so we re-open the right form pre-filled instead of
+              switching in place. */}
+          {isEdit && admin && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 -mt-1">
+              <div className="text-[12.5px] font-medium text-amber-800">{t('post.refile.title')}</div>
+              <div className="text-[11px] text-amber-700/80 mt-0.5">{t('post.refile.hint')}</div>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {([['business', 'post.refile.business'], ['sell', 'post.refile.sell'], ['job_seeker', 'post.refile.jobSeeker'], ['hiring', 'post.refile.hiring'], ['happening', 'post.refile.happening']] as const)
+                  .filter(([v]) => v !== (cat === 'jobs' ? jobMode : cat))
+                  .map(([v, k]) => (
+                    <button type="button" key={v} onClick={() => doRefile(v)}
+                      className="rounded-lg border border-amber-300 bg-white text-amber-800 text-xs px-2.5 py-1 hover:bg-amber-100">
+                      {t(k)}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
 
           {cat === 'jobs' && (
             <div className="grid grid-cols-2 gap-2">

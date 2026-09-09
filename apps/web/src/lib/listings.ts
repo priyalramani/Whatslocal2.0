@@ -182,6 +182,12 @@ export const createListing = (payload: any) =>
 export const adminCreateListing = (payload: any) =>
   api<{ _id: string; status: string }>('/admin/listings', { method: 'POST', body: JSON.stringify(payload) });
 
+// Admin "Re-file as another type": create the corrected listing under the right
+// type/category and hide the mis-posted original (attribution kept server-side).
+export const refileListing = (fromId: string, payload: any) =>
+  api<{ _id: string; status: string; refiled_from: string }>(
+    `/admin/listings/${fromId}/refile`, { method: 'POST', body: JSON.stringify(payload) });
+
 // Autocomplete only — keywords are free; no dictionary management.
 export const searchTags = (q: string, kind: string) =>
   api<Tag[]>(`/tags?q=${encodeURIComponent(q)}&kind=${kind}`);

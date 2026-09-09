@@ -2,8 +2,8 @@ import {
   Injectable, NotFoundException, UnauthorizedException, HttpException, HttpStatus, BadRequestException, ForbiddenException,
   type OnModuleInit,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import mongoose, { Model } from 'mongoose';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
+import { Model, Connection } from 'mongoose';
 import {
   maskTitle, calcAge, postTypeToKind, CATEGORY_BY_LABEL, CATEGORY_BY_KEY, ALL_CATEGORIES,
   defaultHomeSequence, slugifyTitle, type PostType,
@@ -416,6 +416,7 @@ export class ListingsService implements OnModuleInit {
     private readonly auth: AuthService,
     private readonly pins: PincodeService,
     private readonly whatsapp: WhatsappService,
+    @InjectConnection() private readonly conn: Connection,
   ) {}
 
   // One-time, idempotent backfill: give any pre-slug listings a readable unique
@@ -927,6 +928,28 @@ export class ListingsService implements OnModuleInit {
     return { _id: String(doc._id), status: doc.status };
   }
 
+  // Admin "Re-file as another type": the poster chose the wrong kind (e.g. a
+  // painter posted as a Job Seeker instead of a Home-Repair business). Rather
+  // than mutate one record across incompatible field sets, admin re-enters it
+  // through the CORRECT form; this creates the new listing, re-points attribution
+  // to the ORIGINAL poster (so it still counts as theirs — keeps its self-posted
+  // rank and shows under their account), and HIDES the original (reversible,
+  // active:false — never hard-deleted here). Admin-only (guarded at the route).
+  async refile(fromId: string, dto: CreateListingDto, ctx: PostContext) {
+    const orig: any = await this.listings.findById(fromId).lean();
+    if (!orig) throw new NotFoundException('Original listing not found.');
+    const created = await this.create(dto, ctx);   // ctx.role === 'admin' → publishes now
+    await this.listings.findByIdAndUpdate(created._id, {
+      posted_by_user_id: orig.posted_by_user_id ?? ctx.userId,
+      posted_by_mobile: orig.posted_by_mobile ?? '',
+      source: orig.source || 'admin',
+      lang: orig.lang || '',
+    });
+    await this.listings.findByIdAndUpdate(fromId, { active: false });
+    this.removeOgCard(String(fromId));
+    return { ...created, refiled_from: String(fromId) };
+  }
+
   // ===== FAIR VISIBILITY =====
   // Prime slots (first row, 3 spots) are rotated so every post gets a turn,
   // instead of the same few always sitting on top. Points: 3/2/1 for pos 1/2/3;
@@ -1405,7 +1428,10 @@ export class ListingsService implements OnModuleInit {
   // real Fortius shape can be inspected + the parser finalized. Never throws.
   async logWabaInbound(body: any, meta: { query?: any; contentType?: string }): Promise<void> {
     try {
-      const db = mongoose.connection.db;
+      // Use the APP's Mongoose connection (the global `mongoose.connection` is a
+      // different, unconnected default under @nestjs/mongoose → db was undefined,
+      // so captures silently no-op'd).
+      const db = this.conn.db;
       if (db) {
         await db.collection('waba_inbound_logs').insertOne({
           at: new Date(), content_type: meta.contentType || '', query: meta.query || {}, body,

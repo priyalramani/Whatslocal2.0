@@ -498,6 +498,14 @@ const S: Record<string, Entry> = {
   'post.noLogin': { en: 'No login needed to start', hi: 'शुरू करने के लिए लॉगिन ज़रूरी नहीं' },
   'post.cantChange': { en: "🔒 can't change", hi: '🔒 बदल नहीं सकते' },
   'post.loginToEdit': { en: 'Login to edit your post', hi: 'अपनी पोस्ट एडिट करने के लिए लॉगिन करें' },
+  // Admin "Re-file as another type" (fix a mis-posted listing).
+  'post.refile.title': { en: 'Posted in the wrong type?', hi: 'गलत टाइप में पोस्ट हो गई?' },
+  'post.refile.hint': { en: 'Re-file it — opens the right form, keeps the details, hides this one.', hi: 'दोबारा फ़ाइल करें — सही फ़ॉर्म खुलेगा, डिटेल्स रहेंगी, यह छुप जाएगी।' },
+  'post.refile.business': { en: '→ Business / Service', hi: '→ बिज़नेस / सर्विस' },
+  'post.refile.sell': { en: '→ Sell / Rent', hi: '→ सेल / रेंट' },
+  'post.refile.jobSeeker': { en: '→ Job Seeker', hi: '→ जॉब चाहिए' },
+  'post.refile.hiring': { en: '→ Hiring', hi: '→ हायरिंग' },
+  'post.refile.happening': { en: '→ Happening', hi: '→ इवेंट' },
 
   // post: "What are you posting?"
   'post.whatPosting': { en: 'What are you posting? *', hi: 'आप क्या पोस्ट कर रहे हैं? *' },

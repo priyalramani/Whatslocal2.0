@@ -240,6 +240,14 @@ export class ListingsController {
     return this.listings.create(dto, { userId: req.user.id, role: 'admin', userMobile: '' });
   }
 
+  // Admin re-files a mis-posted listing under the correct type/category: creates
+  // the corrected listing (original poster's attribution kept) and hides the old.
+  @Post('admin/listings/:id/refile')
+  @UseGuards(AdminGuard)
+  adminRefile(@Param('id') id: string, @Body() dto: CreateListingDto, @Req() req: any) {
+    return this.listings.refile(id, dto, { userId: req.user.id, role: 'admin', userMobile: '' });
+  }
+
   @Get('admin/listings/pending')
   @UseGuards(AdminGuard)
   pending() {
