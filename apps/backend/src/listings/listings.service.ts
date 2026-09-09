@@ -948,7 +948,10 @@ export class ListingsService implements OnModuleInit {
       edited_by_admin: true,
       lang: orig.lang || '',
     });
-    await this.listings.findByIdAndUpdate(fromId, { active: false });
+    // Retire the original: 'rejected' takes it OUT of the pending/approvals queue
+    // (listPending filters status:'pending') and out of public results (search =
+    // approved), and active:false hides it everywhere. Reversible if ever needed.
+    await this.listings.findByIdAndUpdate(fromId, { status: 'rejected', active: false });
     this.removeOgCard(String(fromId));
     // Admin create goes straight to 'approved' (bypassing setStatus), so the
     // approval WhatsApp never fires there — send it here so the poster is told
@@ -1829,7 +1832,7 @@ export class ListingsService implements OnModuleInit {
     // so the variable is the PATH ONLY (no domain) — else the link doubles.
     const citySlug = String(d.city || 'gondia').toLowerCase().replace(/\s+/g, '-');
     const path = d.slug ? `${citySlug}/${d.slug}` : `l/${String(d._id)}`;
-    await this.whatsapp.sendPostApproved(to, title, publishedIn, path, lang);
+    await this.whatsapp.sendPostApproved(to, title, publishedIn, path, lang, String(d._id));
   }
 
   // ---- Social link preview (Open Graph) for crawlers (WhatsApp/FB/Telegram…) --

@@ -16,6 +16,7 @@ import { AdminWards } from './AdminWards';
 import { AdminComplaints } from './AdminComplaints';
 import { AdminCabs } from './AdminCabs';
 import { AdminWhatsApp } from './AdminWhatsApp';
+import { AdminWhatsAppReport } from './AdminWhatsAppReport';
 
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   return currentUser()?.role === 'admin' ? <>{children}</> : <Navigate to="/admin/login" replace />;
@@ -47,12 +48,15 @@ export function AdminApp() {
         <Route path="visitors/:visitorId" element={<AdminVisitorDetail />} />
         <Route path="registered" element={<AdminRegistered />} />
         <Route path="posts" element={<AdminPosts />} />
+        <Route path="whatsapp-report" element={<AdminWhatsAppReport />} />
         {/* Operations · Settings */}
         <Route path="sequence" element={<AdminSequence />} />
         <Route path="whatsapp" element={<AdminWhatsApp />} />
-        {/* Posting */}
-        <Route path="post" element={<AdminPost />} />
-        <Route path="listings/:id" element={<AdminPost />} />
+        {/* Posting. Distinct keys so React REMOUNTS Post when moving between the
+            edit page and a fresh /admin/post (e.g. a Re-file) — otherwise the
+            instance is reused and the new form's seed + refile state don't apply. */}
+        <Route path="post" element={<AdminPost key="new" />} />
+        <Route path="listings/:id" element={<AdminPost key="edit" />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Route>
     </Routes>

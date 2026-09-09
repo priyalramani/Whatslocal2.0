@@ -619,8 +619,9 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
     }
     // Re-file (admin moved a mis-posted listing here) goes through the refile
     // endpoint, which also retires the original; otherwise a normal create.
-    if (refileFromRef.current) {
-      await refileListing(refileFromRef.current, buildPayload(mobileToken));
+    const refileFrom = refileFromRef.current || refileState?.fromId || null;
+    if (refileFrom) {
+      await refileListing(refileFrom, buildPayload(mobileToken));
     } else {
       await (admin ? adminCreateListing : createListing)(buildPayload(mobileToken));
     }
