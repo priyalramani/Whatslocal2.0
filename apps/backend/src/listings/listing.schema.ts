@@ -134,6 +134,11 @@ export class Listing {
   @Prop({ default: false }) contact_alert_hidden: boolean;    // hidden BY this feature (No / timeout) — a later Yes may revive it
   @Prop({ default: '' }) contact_alert_msg_id: string;        // outbound WhatsApp id, to correlate the reply
 
+  // Set when an admin re-filed a mis-posted listing into this (the correct) type.
+  // Stays USER-posted (source kept 'web') for ranking + "my posts"; this only
+  // records that admin corrected/moved it.
+  @Prop({ default: false }) edited_by_admin: boolean;
+
   // Denormalized text for safe search (title + keyword names/synonyms + description).
   @Prop({ default: '' }) search_blob: string;
   // Same text but lowercased + all spaces/punctuation removed — powers substring

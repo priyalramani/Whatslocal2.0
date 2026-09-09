@@ -255,6 +255,12 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
   const refileState = (useLocation().state as any)?.refile as
     { fromId: string; cat?: string; jobMode?: string; seed?: any } | undefined;
   const refileFromRef = useRef<string | null>(refileState?.fromId || null);
+  // Admin "Re-file" modal: pick target type → confirm the details to carry → open
+  // the correct form pre-filled.
+  const [refileOpen, setRefileOpen] = useState(false);
+  const [refileStep, setRefileStep] = useState<'type' | 'confirm'>('type');
+  const [refileTarget, setRefileTarget] = useState('');
+  const [refileDesc, setRefileDesc] = useState('');
   const { t, lang } = useT();
   const isEdit = !!editId;
   // A logged-in admin is treated as admin on ANY route (incl. the public /post),
@@ -664,14 +670,32 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
     business: { cat: 'business' }, sell: { cat: 'sell' }, happening: { cat: 'happening' },
     job_seeker: { cat: 'jobs', jobMode: 'job_seeker' }, hiring: { cat: 'jobs', jobMode: 'hiring' },
   };
-  function doRefile(target: string) {
+  // Merge EVERY free-text detail the poster entered into one block, so re-filing
+  // into a type with different fields never silently drops what they wrote (the
+  // job-seeker's detail, for instance, lives in experience_description).
+  function mergedDetails(): string {
+    const parts: string[] = [];
+    if (f.job_role) parts.push(`Role: ${String(f.job_role).trim()}`);
+    if (f.short_desc) parts.push(String(f.short_desc).trim());
+    if (f.description) parts.push(String(f.description).trim());
+    if (f.experience_description) parts.push(String(f.experience_description).trim());
+    if (f.experience_months) parts.push(`Experience: ${f.experience_months} months`);
+    return parts.filter(Boolean).join('\n').trim();
+  }
+  function pickRefileType(target: string) {
+    setRefileTarget(target);
+    setRefileDesc(mergedDetails());   // pre-fill the confirm step; admin can trim
+    setRefileStep('confirm');
+  }
+  function confirmRefile() {
     if (!editId) return;
-    const tgt = REFILE_MAP[target]; if (!tgt) return;
+    const tgt = REFILE_MAP[refileTarget]; if (!tgt) return;
     const seed = {
       title: f.title || '', mobile: f.mobile || '', alt_phone: f.alt_phone || '', whatsapp: f.whatsapp || '',
       call_ok: chCall, whatsapp_ok: chWa, hide_title: !!f.hide_title,
-      pincode: f.pincode || '441601', photos: f.photos || [], description: f.description || '',
+      pincode: f.pincode || '441601', photos: f.photos || [], description: refileDesc,
     };
+    setRefileOpen(false);
     nav('/admin/post', { state: { refile: { fromId: editId, cat: tgt.cat, jobMode: tgt.jobMode, seed } } });
   }
 
@@ -847,23 +871,14 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
             )}
           </Field>
 
-          {/* Admin: move a mis-posted listing to the correct type. Kinds have
-              different fields, so we re-open the right form pre-filled instead of
-              switching in place. */}
+          {/* Admin: move a mis-posted listing to the correct type — short button
+              opens a modal (pick type → confirm details → open the right form). */}
           {isEdit && admin && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 -mt-1">
-              <div className="text-[12.5px] font-medium text-amber-800">{t('post.refile.title')}</div>
-              <div className="text-[11px] text-amber-700/80 mt-0.5">{t('post.refile.hint')}</div>
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {([['business', 'post.refile.business'], ['sell', 'post.refile.sell'], ['job_seeker', 'post.refile.jobSeeker'], ['hiring', 'post.refile.hiring'], ['happening', 'post.refile.happening']] as const)
-                  .filter(([v]) => v !== (cat === 'jobs' ? jobMode : cat))
-                  .map(([v, k]) => (
-                    <button type="button" key={v} onClick={() => doRefile(v)}
-                      className="rounded-lg border border-amber-300 bg-white text-amber-800 text-xs px-2.5 py-1 hover:bg-amber-100">
-                      {t(k)}
-                    </button>
-                  ))}
-              </div>
+            <div className="-mt-1">
+              <button type="button" onClick={() => { setRefileTarget(''); setRefileStep('type'); setRefileOpen(true); }}
+                className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 text-xs font-medium px-2.5 py-1 hover:bg-amber-100">
+                ↪ {t('post.refile.btn')}
+              </button>
             </div>
           )}
 
@@ -1191,6 +1206,51 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
           )}
         </form>
       </div>
+
+      {/* Admin Re-file: step 1 pick type → step 2 confirm the details to carry. */}
+      {refileOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setRefileOpen(false)}>
+          <div className="relative w-full max-w-[420px] rounded-2xl bg-white px-5 py-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            {refileStep === 'type' ? (
+              <>
+                <div className="text-base font-semibold text-slate-800">{t('post.refile.title')}</div>
+                <div className="text-[12.5px] text-slate-500 mt-1">{t('post.refile.pickType')}</div>
+                <div className="mt-3 space-y-1.5">
+                  {([['business', 'post.refile.business'], ['sell', 'post.refile.sell'], ['job_seeker', 'post.refile.jobSeeker'], ['hiring', 'post.refile.hiring'], ['happening', 'post.refile.happening']] as const)
+                    .filter(([v]) => v !== (cat === 'jobs' ? jobMode : cat))
+                    .map(([v, k]) => (
+                      <button type="button" key={v} onClick={() => pickRefileType(v)}
+                        className="w-full text-left rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:border-brand hover:bg-brand/5">
+                        {t(k)}
+                      </button>
+                    ))}
+                </div>
+                <button type="button" onClick={() => setRefileOpen(false)} className="mt-3 text-xs text-slate-400">{t('post.refile.cancel')}</button>
+              </>
+            ) : (
+              <>
+                <div className="text-base font-semibold text-slate-800">{t('post.refile.confirmTitle')}</div>
+                <div className="text-[12.5px] text-slate-500 mt-1">{t('post.refile.confirmHint')}</div>
+                <div className="mt-3 text-[13px] text-slate-600 space-y-0.5 bg-slate-50 rounded-lg px-3 py-2">
+                  {f.title && <div>👤 {f.title}</div>}
+                  <div>📞 {f.mobile}{[chCall ? 'Call' : '', chWa ? 'WhatsApp' : ''].filter(Boolean).length ? ` · ${[chCall ? 'Call' : '', chWa ? 'WhatsApp' : ''].filter(Boolean).join(' + ')}` : ''}</div>
+                  <div>📍 {f.pincode}</div>
+                  {(f.photos?.length || 0) > 0 && <div>🖼️ {f.photos.length} {t('post.refile.photos')}</div>}
+                </div>
+                <label className="block mt-3">
+                  <span className="text-sm text-slate-600">{t('post.refile.detailsLabel')}</span>
+                  <textarea className={`${input} mt-1`} rows={5} value={refileDesc} onChange={(e) => setRefileDesc(e.target.value)}
+                    placeholder={t('post.refile.detailsPh')} />
+                </label>
+                <div className="flex gap-2 mt-4">
+                  <button type="button" onClick={() => setRefileStep('type')} className="flex-1 rounded-lg border border-slate-300 text-slate-600 text-sm py-2">{t('post.refile.back')}</button>
+                  <button type="button" onClick={confirmRefile} className="flex-1 rounded-lg bg-brand text-white text-sm font-medium py-2 hover:bg-brand-dark">{t('post.refile.openForm')}</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Duplicate-posting warning (same number + same kind, editable by you). */}
       {dup && dup.length > 0 && (

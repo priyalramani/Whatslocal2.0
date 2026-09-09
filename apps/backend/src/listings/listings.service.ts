@@ -939,14 +939,25 @@ export class ListingsService implements OnModuleInit {
     const orig: any = await this.listings.findById(fromId).lean();
     if (!orig) throw new NotFoundException('Original listing not found.');
     const created = await this.create(dto, ctx);   // ctx.role === 'admin' → publishes now
+    // Keep it the USER's post (source 'web' ⇒ self-posted rank + shows under their
+    // account), carry attribution, and just flag that admin corrected it.
     await this.listings.findByIdAndUpdate(created._id, {
       posted_by_user_id: orig.posted_by_user_id ?? ctx.userId,
       posted_by_mobile: orig.posted_by_mobile ?? '',
-      source: orig.source || 'admin',
+      source: 'web',
+      edited_by_admin: true,
       lang: orig.lang || '',
     });
     await this.listings.findByIdAndUpdate(fromId, { active: false });
     this.removeOgCard(String(fromId));
+    // Admin create goes straight to 'approved' (bypassing setStatus), so the
+    // approval WhatsApp never fires there — send it here so the poster is told
+    // their post is now live (in the corrected section). Fire-and-forget.
+    const fresh = await this.listings.findById(created._id).lean();
+    void this.notifyPostApproved(fresh).catch((e) =>
+      // eslint-disable-next-line no-console
+      console.error('[whatsapp] refile notify failed:', (e as Error)?.message || e),
+    );
     return { ...created, refiled_from: String(fromId) };
   }
 
