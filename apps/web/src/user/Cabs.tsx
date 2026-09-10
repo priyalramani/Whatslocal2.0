@@ -64,16 +64,31 @@ export function Cabs() {
   const fmtTime = (a: string, b: string) => [a, b].filter(Boolean).join(' – ');
   const fmtDate = (d: string) => { const [y, m, dd] = d.split('-'); return `${dd}/${m}/${y.slice(2)}`; };
 
+  // Share the Cab Sharing page (native sheet, else WhatsApp) — same as the other
+  // sections. The link unfurls with the 🚕 Cab Sharing card.
+  async function doShare() {
+    const url = `${location.origin}/${city.slug}/cabs`;
+    const text = `${t('cab.title')} in ${city.name} — WhatsLocal`;
+    try { if (navigator.share) { await navigator.share({ title: t('cab.title'), text, url }); return; } } catch { return; }
+    window.open(`https://wa.me/?text=${encodeURIComponent(text + '\n' + url)}`, '_blank', 'noopener');
+  }
+
   return (
     <div className="min-h-screen bg-slate-200/70 flex justify-center">
       <div className="w-full max-w-[480px] min-h-screen bg-slate-50 shadow-xl flex flex-col">
         <header className="bg-gradient-to-br from-brand to-brand-dark text-white px-4 pt-4 pb-4 rounded-b-3xl shadow-lg shrink-0">
           <div className="flex items-center gap-3">
             <button onClick={back} aria-label={t('common.back')} className="text-white/80 text-lg">←</button>
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="font-semibold text-lg">🚕 {t('cab.title')}</div>
               <div className="text-[11px] text-white/70">{city.name} · {t('cab.sub')}</div>
             </div>
+            <button onClick={doShare} aria-label="Share Cab Sharing" className="text-white/90 px-1 shrink-0">
+              <svg viewBox="0 0 24 24" className="h-[19px] w-[19px]" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+                <line x1="8.6" y1="13.5" x2="15.4" y2="17.5" /><line x1="15.4" y1="6.5" x2="8.6" y2="10.5" />
+              </svg>
+            </button>
           </div>
           {/* Route search — the only axis that matters here */}
           <div className="mt-3 grid grid-cols-[1fr_1fr_auto] gap-2">

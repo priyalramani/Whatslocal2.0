@@ -1845,7 +1845,7 @@ export class ListingsService implements OnModuleInit {
     const path = String(rawPath || '/').split('?')[0];
     const segs = path.split('/').filter(Boolean);
     // Second-segment words that are browse pages, not listing slugs.
-    const RESERVED = new Set(['business', 'job-opening', 'job-seeker', 'happening', 'sell', 'rent', 'other', 'cat', 'admin', 'post', 'my', 'categories', 'browse', 'l']);
+    const RESERVED = new Set(['business', 'job-opening', 'job-seeker', 'happening', 'sell', 'rent', 'other', 'cat', 'admin', 'post', 'my', 'categories', 'browse', 'cabs', 'profile', 'l']);
     const proj = { title: 1, hide_title: 1, short_desc: 1, description: 1, category: 1, city: 1, state: 1, photos: 1, status: 1, active: 1, updatedAt: 1 };
 
     let listing: any = null;
@@ -1977,6 +1977,12 @@ export class ListingsService implements OnModuleInit {
 
   // Legacy browse paths → same {label, emoji, mongo filter} shape.
   private legacyBrowse(segs: string[]): { label: string; cityName: string; emoji: string; filter: any } | null {
+    // Cab Sharing is its own page (`/:city/cabs`) backed by the `trips` collection,
+    // not listings — mark it so ogBrowseImage counts trips, not listings.
+    if (segs[1] === 'cabs') {
+      const cityName = String(segs[0]).replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      return { label: 'Cab Sharing', cityName, emoji: '🚕', filter: { __cabs: true } };
+    }
     const l = this.browseLabel(segs);
     if (!l) return null;
     const filter: any = {};
@@ -2000,6 +2006,21 @@ export class ListingsService implements OnModuleInit {
     let buf: Buffer;
     if (!b) {
       buf = await jpeg(buildCardSvg({ emoji: '📍', chip: 'Gondia’s local directory', title: 'WhatsLocal', city: 'Gondia, Maharashtra' }));
+    } else if ((b.filter as any).__cabs) {
+      // Cabs live in the `trips` collection — count active, not-yet-expired trips
+      // (recurring ones sit far in the future, so they're included).
+      let total = 0; let state = '';
+      try {
+        const db = this.conn.db;
+        if (db) total = await db.collection('trips').countDocuments({ active: { $ne: false }, expires_at: { $gt: new Date() } });
+        const cityRx = new RegExp('^' + escapeRe(b.cityName) + '$', 'i');
+        const s = await this.listings.findOne({ city: cityRx }, { state: 1 }).lean();
+        state = (s as any)?.state || 'Maharashtra';
+      } catch { /* count/state optional */ }
+      const disp = total >= 10 ? `${Math.floor(total / 10) * 10}+` : `${total}`;
+      const accent = total > 0 ? `${disp} rides` : '';
+      const cityFooter = [b.cityName, state].filter(Boolean).join(', ');
+      buf = await jpeg(buildCardSvg({ emoji: '🚕', chip: `Cab sharing in ${b.cityName}`, title: 'Cab Sharing', accent, city: cityFooter }));
     } else {
       const cityRx = new RegExp('^' + escapeRe(b.cityName) + '$', 'i');
       // Lean indexed count (no documents fetched) + the city's state, in parallel.

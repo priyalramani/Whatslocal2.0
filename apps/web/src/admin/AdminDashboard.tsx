@@ -62,37 +62,16 @@ export function AdminDashboard() {
               </div>
 
               <div className="bg-white rounded-xl border border-slate-200 p-4">
-                <div className="font-semibold text-slate-800 mb-2">Top searches</div>
+                <div className="font-semibold text-slate-800 mb-2">
+                  Recent searches
+                  <span className="text-xs font-normal text-slate-500"> — latest first</span>
+                </div>
                 {data.top_searches.length === 0 && <div className="text-sm text-slate-400">None yet.</div>}
                 <ul className="text-sm divide-y divide-slate-100">
                   {data.top_searches.map((s) => (
                     <li key={s.query} className="flex justify-between py-1.5">
                       <span className="text-slate-700">{s.query}</span>
                       <span className="text-slate-400">{s.count}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="bg-white rounded-xl border border-slate-200 p-4">
-                <div className="font-semibold text-slate-800 mb-2">Devices</div>
-                <ul className="text-sm divide-y divide-slate-100">
-                  {Object.entries(data.device_breakdown).map(([k, v]) => (
-                    <li key={k} className="flex justify-between py-1.5">
-                      <span className="text-slate-700 capitalize">{k}</span>
-                      <span className="text-slate-400">{v}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="bg-white rounded-xl border border-slate-200 p-4">
-                <div className="font-semibold text-slate-800 mb-2">Events by day</div>
-                <ul className="text-sm divide-y divide-slate-100">
-                  {data.by_day.map((d) => (
-                    <li key={d.day} className="flex justify-between py-1.5">
-                      <span className="text-slate-700">{d.day}</span>
-                      <span className="text-slate-400">{d.events} ev · {d.visitors} vis</span>
                     </li>
                   ))}
                 </ul>

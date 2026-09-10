@@ -1,4 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { WhatsappMessage, WhatsappMessageDocument } from './whatsapp-message.schema';
 
 // WABA (WhatsApp Cloud API via the Fortius reseller proxy) send service for
 // WhatsLocal. Mirrors the proven BT / RG ERP design: a thin REST wrapper that
@@ -26,6 +29,10 @@ export interface TemplateSendInput {
   buttonUrlParam?: string; // dynamic URL-button variable, when the template has one
   quickReplyPayloads?: string[]; // quick-reply buttons, in index order (payload = what returns on tap)
   callbackData?: string; // biz_opaque_callback_data — echoed on delivery statuses
+  // Metadata for the message-history log (the admin WhatsApp report). When set, a
+  // successful send writes an outbound `whatsapp_messages` row with the RESOLVED
+  // body text so the report shows the real message, not just the template name.
+  logMeta?: { event: string; body: string; buttons?: string[]; listingId?: string; name?: string };
 }
 
 export interface WabaSendResult {
@@ -36,6 +43,10 @@ export interface WabaSendResult {
 
 @Injectable()
 export class WhatsappService {
+  constructor(
+    @InjectModel(WhatsappMessage.name) private readonly messages: Model<WhatsappMessageDocument>,
+  ) {}
+
   // Normalise an Indian mobile to the country-code-prefixed digits WABA expects
   // (e.g. 919876543210). Numbers are stored/typed 10-digit, so we add the 91.
   //   9876543210      → 919876543210
@@ -162,6 +173,27 @@ export class WhatsappService {
     const providerMessageId = parsed?.messages?.[0]?.id || parsed?.message_id || undefined;
     // eslint-disable-next-line no-console
     console.log(`[whatsapp] sent ${input.template} → ${to} (id=${providerMessageId || 'n/a'})`);
+    // History row for the admin report (best-effort — never break a send).
+    if (input.logMeta) {
+      try {
+        await this.messages.create({
+          direction: 'out',
+          number: to,
+          name: input.logMeta.name || '',
+          event: input.logMeta.event,
+          template: input.template,
+          lang: input.languageCode || 'en',
+          body: input.logMeta.body,
+          buttons: input.logMeta.buttons || [],
+          wa_id: providerMessageId || '',
+          listing_id: input.logMeta.listingId || null,
+          status: 'sent',
+        });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('[whatsapp] history write failed:', (e as Error)?.message || e);
+      }
+    }
     return { to, providerMessageId, raw: parsed };
   }
 
@@ -175,18 +207,23 @@ export class WhatsappService {
     publishedIn: string,
     viewUrl: string,
     lang: 'en' | 'hi' = 'en',
+    listingId?: string,
   ): Promise<WabaSendResult> {
     const template = lang === 'hi' ? 'post_approved_hindi' : 'post_approved_english';
+    const t = WhatsappService.clampParam(postTitle, 40); // title — kept short
+    const p = WhatsappService.clampParam(publishedIn, 40);
+    const body =
+      lang === 'hi'
+        ? `आपकी पोस्ट "${t}" अप्रूव हो गई है और अब ${p} में पब्लिश हो गई है। देखने के लिए View Post पर टैप करें।`
+        : `Your post "${t}" has been approved and is now published in ${p}. Tap View Post to view it.`;
     return this.sendTemplate({
       to,
       template,
       languageCode: 'en',
-      bodyParams: [
-        WhatsappService.clampParam(postTitle, 40), // title — kept short
-        WhatsappService.clampParam(publishedIn, 40),
-      ],
+      bodyParams: [t, p],
       buttonUrlParam: viewUrl,
       callbackData: `post_approved:${WhatsappService.normalizeMobile(to)}`,
+      logMeta: { event: 'post_approved', body, buttons: ['View post'], listingId, name: postTitle },
     });
   }
 
@@ -212,13 +249,129 @@ export class WhatsappService {
     const template = lang === 'hi' ? 'enough_contact_hindi' : 'enough_contact_english';
     const payloads =
       lang === 'hi' ? ['हाँ, जारी रखें', 'नहीं, हटाएँ'] : ['Yes, keep active', 'No, hide it'];
+    const t = WhatsappService.clampParam(postTitle, 40);
+    const body =
+      lang === 'hi'
+        ? `नमस्ते, ${count} लोगों ने आपकी पोस्ट "${t}" पर संपर्क किया है। क्या आप इस पोस्ट को आगे जारी रखना चाहते हैं?`
+        : `Hello, ${count} people have contacted your post "${t}". Do you want to keep it active?`;
     return this.sendTemplate({
       to,
       template,
       languageCode: 'en',
-      bodyParams: [String(count), WhatsappService.clampParam(postTitle, 40)], // {{1}}=count, {{2}}=title
+      bodyParams: [String(count), t], // {{1}}=count, {{2}}=title
       quickReplyPayloads: payloads,
       callbackData: `contact_alert:${listingId || ''}:${WhatsappService.normalizeMobile(to)}`,
+      logMeta: { event: 'contact_alert', body, buttons: payloads, listingId, name: postTitle },
     });
+  }
+
+  // ===== message-history recording (fed by the inbound webhook) ================
+
+  // Advance an outbound row's delivery lifecycle from a status callback. Never
+  // regresses (read stays read); matches on the provider message id.
+  async recordStatus(waId: string, state: string, whenMs: number, error = ''): Promise<void> {
+    const id = String(waId || '').trim();
+    if (!id) return;
+    const s = String(state || '').toLowerCase();
+    const when = whenMs ? new Date(whenMs) : new Date();
+    const set: Record<string, unknown> = {};
+    if (s === 'delivered') { set.delivered_at = when; set.status = 'delivered'; }
+    else if (s === 'read') { set.read_at = when; set.status = 'read'; }
+    else if (s === 'failed') { set.failed_at = when; set.status = 'failed'; if (error) set.error = error; }
+    else if (s === 'sent') { /* already 'sent' on create */ return; }
+    else return;
+    try {
+      // Don't downgrade read→delivered: only apply if the new state ranks higher.
+      const rank: Record<string, number> = { sent: 0, delivered: 1, read: 2, failed: 1 };
+      const row = await this.messages.findOne({ wa_id: id, direction: 'out' }, { status: 1 }).lean();
+      if (!row) return;
+      if ((rank[s] ?? 0) < (rank[String(row.status)] ?? 0) && s !== 'failed') {
+        // still stamp the timestamp without changing the headline status
+        delete set.status;
+      }
+      await this.messages.updateOne({ wa_id: id, direction: 'out' }, { $set: set });
+    } catch { /* best-effort */ }
+  }
+
+  // Store an inbound reply as its own row, linked to the outbound it answered.
+  async recordInboundReply(opts: {
+    from: string; contextId?: string; text: string; choice?: string;
+  }): Promise<void> {
+    const number = WhatsappService.normalizeMobile(opts.from) || String(opts.from || '');
+    if (!number) return;
+    try {
+      // Inherit name/listing from the message they replied to, when we can find it.
+      let name = '';
+      let listingId: string | null = null;
+      if (opts.contextId) {
+        const parent = await this.messages
+          .findOne({ wa_id: opts.contextId }, { name: 1, listing_id: 1 })
+          .lean();
+        if (parent) { name = String(parent.name || ''); listingId = (parent.listing_id as any) ?? null; }
+      }
+      await this.messages.create({
+        direction: 'in',
+        number,
+        name,
+        event: 'reply',
+        body: opts.text || '',
+        context_id: opts.contextId || '',
+        reply_choice: opts.choice || '',
+        listing_id: listingId,
+        status: 'read',
+      });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[whatsapp] inbound history write failed:', (e as Error)?.message || e);
+    }
+  }
+
+  // ===== admin report queries ==================================================
+
+  async reportStats(): Promise<Record<string, number>> {
+    const [sent, delivered, read, failed, replies] = await Promise.all([
+      this.messages.countDocuments({ direction: 'out' }),
+      this.messages.countDocuments({ direction: 'out', status: { $in: ['delivered', 'read'] } }),
+      this.messages.countDocuments({ direction: 'out', status: 'read' }),
+      this.messages.countDocuments({ direction: 'out', status: 'failed' }),
+      this.messages.countDocuments({ direction: 'in' }),
+    ]);
+    return { sent, delivered, read, failed, replies };
+  }
+
+  // Latest message per number → the conversation list. Optional text filter on
+  // number or name; optional event-type filter.
+  async conversations(q = '', type = '', limit = 200): Promise<any[]> {
+    const match: any = {};
+    if (type) match.event = type;
+    if (q.trim()) {
+      const rx = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      match.$or = [{ number: rx }, { name: rx }];
+    }
+    return this.messages.aggregate([
+      { $match: match },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: '$number',
+          name: { $first: '$name' },
+          last_body: { $first: '$body' },
+          last_dir: { $first: '$direction' },
+          last_status: { $first: '$status' },
+          last_event: { $first: '$event' },
+          last_at: { $first: '$createdAt' },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { last_at: -1 } },
+      { $limit: limit },
+    ]);
+  }
+
+  // Every message to/from one number, oldest first — the chat chronology.
+  async thread(number: string): Promise<any[]> {
+    const n = WhatsappService.normalizeMobile(number) || String(number || '');
+    if (!n) return [];
+    return this.messages.find({ number: n }).sort({ createdAt: 1 }).lean();
   }
 }

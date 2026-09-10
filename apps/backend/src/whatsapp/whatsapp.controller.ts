@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { WhatsappService } from './whatsapp.service';
 import { AdminGuard } from '../auth/guards';
 
@@ -33,5 +33,25 @@ export class WhatsappController {
       buttonUrlParam: body?.buttonUrl,
     });
     return { success: true, ...r };
+  }
+
+  // ---- WhatsApp message report (admin) ----
+  // Overview = stat tiles + the conversation list (latest message per number),
+  // with optional number/name search (`q`) and event-type filter (`type`).
+  @Get('admin/whatsapp/report')
+  @UseGuards(AdminGuard)
+  async report(@Query('q') q?: string, @Query('type') type?: string) {
+    const [stats, conversations] = await Promise.all([
+      this.wa.reportStats(),
+      this.wa.conversations(q || '', type || ''),
+    ]);
+    return { stats, conversations };
+  }
+
+  // Full chat chronology for one number (oldest first).
+  @Get('admin/whatsapp/thread')
+  @UseGuards(AdminGuard)
+  async thread(@Query('number') number?: string) {
+    return { results: await this.wa.thread(number || '') };
   }
 }

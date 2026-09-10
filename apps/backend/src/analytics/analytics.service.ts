@@ -643,9 +643,11 @@ export class AnalyticsService {
         { $group: { _id: '$device.type', count: { $sum: 1 } } },
       ]),
       this.model.aggregate([
+        // Ordered by MOST RECENT search (not highest count) — the admin wants to
+        // see what people are searching for *now*. `last` = latest ts per query.
         { $match: { ...match, type: 'search', query: { $ne: null } } },
-        { $group: { _id: { $toLower: '$query' }, count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
+        { $group: { _id: { $toLower: '$query' }, count: { $sum: 1 }, last: { $max: '$ts' } } },
+        { $sort: { last: -1 } },
         { $limit: 25 },
       ]),
       this.model.aggregate([

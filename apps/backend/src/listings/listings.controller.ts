@@ -7,47 +7,63 @@ import { Throttle } from '@nestjs/throttler';
 import { Patch } from '@nestjs/common';
 import { ListingsService } from './listings.service';
 import { AuthService } from '../auth/auth.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { AdminGuard, JwtAuthGuard } from '../auth/guards';
 import { CreateListingDto, SearchQueryDto, RevealDto, ReportDto, AdminUpdateListingDto } from './dto';
 
-// Best-effort parse of a WABA inbound webhook into a Yes/No reply. Handles the
-// Meta Cloud API shape (entry[].changes[].value.messages[]) with a template
-// quick-reply button (`button.text`/`.payload`) or an interactive `button_reply`,
-// reading `context.id` (the id of OUR outbound alert) + the sender `from`.
-// PENDING a real Fortius sample — extend the walk once the true shape is known.
-function parseInboundReply(
-  body: any,
-): { fromPhone?: string; contextMsgId?: string; choice: 'yes' | 'no' } | null {
+// Pull inbound messages / delivery statuses out of the Meta Cloud API envelope
+// Fortius uses (top-level, `value.*`, or `entry[].changes[].value.*`).
+function extractMessages(body: any): any[] {
+  const out: any[] = [];
+  const push = (a: any) => { if (Array.isArray(a)) out.push(...a); };
+  if (!body || typeof body !== 'object') return out;
+  push(body.messages);
+  push(body.value?.messages);
+  if (Array.isArray(body.entry)) {
+    for (const en of body.entry) {
+      push(en?.messages);
+      if (Array.isArray(en?.changes)) for (const ch of en.changes) push(ch?.value?.messages);
+    }
+  }
+  return out;
+}
+function extractStatuses(body: any): any[] {
+  const out: any[] = [];
+  const push = (a: any) => { if (Array.isArray(a)) out.push(...a); };
+  if (!body || typeof body !== 'object') return out;
+  push(body.statuses);
+  push(body.value?.statuses);
+  if (Array.isArray(body.entry)) {
+    for (const en of body.entry) {
+      if (Array.isArray(en?.changes)) for (const ch of en.changes) push(ch?.value?.statuses);
+    }
+  }
+  return out;
+}
+// Decide yes/no + pull text/context/sender from one inbound message. Reads BOTH
+// the quick-reply button text and its payload (the tap returns the payload; the
+// visible label may differ) so either can drive the decision.
+function replyInfo(m: any): { fromPhone: string; contextMsgId: string; text: string; choice: 'yes' | 'no' | null } {
   const YES = /(^|\b)(yes|y|haan|ha|haa|keep|continue|rakho|rakhna)\b|हाँ|हा|रखो/i;
   const NO = /(^|\b)(no|n|nahi|nahin|hide|hata|hatao|band)\b|नहीं|नही|हटा|बंद/i;
-  const decide = (s?: string): 'yes' | 'no' | null =>
-    !s ? null : NO.test(s) ? 'no' : YES.test(s) ? 'yes' : null;
-
-  // Find the first inbound message anywhere in the payload (shape-tolerant).
-  let msg: any = null;
-  const visit = (n: any): void => {
-    if (msg || !n || typeof n !== 'object') return;
-    if (Array.isArray(n)) { for (const x of n) visit(x); return; }
-    if (n.from && (n.button || n.interactive || n.text || n.type)) { msg = n; return; }
-    for (const v of Object.values(n)) visit(v);
-  };
-  visit(body);
-  if (!msg) return null;
-
-  // Read BOTH the button text and its payload (a quick-reply tap returns the
-  // payload; the visible label may differ) so either can drive the decision.
-  const btnText = [
-    msg.button?.text, msg.button?.payload,
-    msg.interactive?.button_reply?.title, msg.interactive?.button_reply?.id,
-    msg.text?.body, typeof msg.text === 'string' ? msg.text : '',
+  const text = [
+    m.button?.text, m.button?.payload,
+    m.interactive?.button_reply?.title, m.interactive?.button_reply?.id,
+    m.text?.body, typeof m.text === 'string' ? m.text : '',
   ].filter(Boolean).join(' ');
-  const choice = decide(String(btnText));
-  if (!choice) return null;
+  const choice = !text ? null : NO.test(text) ? 'no' : YES.test(text) ? 'yes' : null;
   return {
-    fromPhone: String(msg.from || ''),
-    contextMsgId: String(msg.context?.id || msg.context?.message_id || ''),
+    fromPhone: String(m.from || m.sender || ''),
+    contextMsgId: String(m.context?.id || m.context?.message_id || ''),
+    text: String(text || ''),
     choice,
   };
+}
+// WABA status timestamps are unix SECONDS; our fields are ms. 0 → now.
+function statusMs(ts: any): number {
+  const n = Number(ts);
+  if (!Number.isFinite(n) || !n) return Date.now();
+  return n < 1e12 ? n * 1000 : n;
 }
 
 @Controller()
@@ -55,6 +71,7 @@ export class ListingsController {
   constructor(
     private readonly listings: ListingsService,
     private readonly auth: AuthService,
+    private readonly whatsapp: WhatsappService,
   ) {}
 
   // Submission → pending. Requires login (OTP user or admin). Admin is exempt
@@ -358,14 +375,26 @@ export class ListingsController {
     // parser against real Fortius payloads.
     await this.listings.logWabaInbound(body, { query: q, contentType: ct });
     try {
-      const parsed = parseInboundReply(body);
-      if (parsed) {
-        const r = await this.listings.handleContactAlertReply(parsed);
-        // eslint-disable-next-line no-console
-        console.log(`[whatsapp] inbound ${parsed.choice} from ${parsed.fromPhone || '?'} → ${r.action}`);
-      } else {
-        // eslint-disable-next-line no-console
-        console.log('[whatsapp] inbound webhook (no Yes/No reply parsed):', JSON.stringify(body)?.slice(0, 600));
+      // 1) Delivery statuses → advance the outbound message rows (sent/delivered/read/failed).
+      for (const s of extractStatuses(body)) {
+        const id = String(s?.id ?? s?.message_id ?? '');
+        const errs = s?.errors as Array<{ title?: string; message?: string }> | undefined;
+        const err = String(errs?.[0]?.title ?? errs?.[0]?.message ?? '');
+        await this.whatsapp.recordStatus(id, String(s?.status ?? ''), statusMs(s?.timestamp), err);
+      }
+      // 2) Inbound messages → store each as an inbound row, and apply a Yes/No to the post.
+      for (const m of extractMessages(body)) {
+        const r = replyInfo(m);
+        await this.whatsapp.recordInboundReply({
+          from: r.fromPhone, contextId: r.contextMsgId, text: r.text, choice: r.choice || '',
+        });
+        if (r.choice) {
+          const act = await this.listings.handleContactAlertReply({
+            fromPhone: r.fromPhone, contextMsgId: r.contextMsgId, choice: r.choice,
+          });
+          // eslint-disable-next-line no-console
+          console.log(`[whatsapp] inbound ${r.choice} from ${r.fromPhone || '?'} → ${act.action}`);
+        }
       }
     } catch (e) {
       // eslint-disable-next-line no-console

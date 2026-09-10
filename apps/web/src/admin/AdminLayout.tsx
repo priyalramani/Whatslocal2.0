@@ -77,6 +77,7 @@ export function AdminLayout() {
           <NavLink to="/admin/visitors" className={itemCls}>Visitors</NavLink>
           <NavLink to="/admin/registered" className={itemCls}>Registered users</NavLink>
           <NavLink to="/admin/posts" className={itemCls}>Posts</NavLink>
+          <NavLink to="/admin/whatsapp-report" className={itemCls}>WhatsApp messages</NavLink>
 
           <div className="px-3 pt-3 pb-0.5 text-[11px] text-slate-400">Settings</div>
           <NavLink to="/admin/sequence" className={itemCls}>Category Setting</NavLink>
