@@ -359,6 +359,14 @@ const S: Record<string, Entry> = {
   'push.helper': { en: 'Tap "Allow" on the next screen.', hi: 'अगली स्क्रीन पर "Allow" दबाएं।' },
   'push.yes': { en: 'Yes, notify me', hi: 'हाँ, मुझे बताएं' },
   'push.later': { en: 'Not now', hi: 'अभी नहीं' },
+  // ---- Install / Add to Home Screen (PWA) ----
+  'install.title': { en: 'Add WhatsLocal to your phone', hi: 'WhatsLocal फ़ोन में जोड़ें' },
+  'install.body': { en: 'Opens like an app — one tap from your home screen.', hi: 'ऐप की तरह — होम स्क्रीन से एक टैप में।' },
+  'install.yes': { en: 'Install', hi: 'इंस्टॉल करें' },
+  'install.later': { en: 'Not now', hi: 'अभी नहीं' },
+  'install.gotit': { en: 'Got it', hi: 'समझ गया' },
+  'install.ios.step1': { en: 'Tap the Share button in Safari.', hi: 'Safari में Share बटन दबाएं।' },
+  'install.ios.step2': { en: 'Choose "Add to Home Screen".', hi: '"Add to Home Screen" चुनें।' },
   // ---- Ward Complaints ----
   'cmp.title': { en: 'Ward Complaints', hi: 'वार्ड शिकायत' },
   'cmp.tagline': { en: 'Report a civic problem in your ward', hi: 'अपने वार्ड की समस्या दर्ज करें' },

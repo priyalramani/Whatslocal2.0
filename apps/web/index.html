@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="theme-color" content="#0F766E" />
+    <!-- PWA install: manifest + icons. iOS Safari ignores the manifest for
+         home-screen, so it needs apple-touch-icon + the apple-mobile-web-app meta. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="WhatsLocal" />
     <title>WhatsLocal</title>
   </head>
   <body>

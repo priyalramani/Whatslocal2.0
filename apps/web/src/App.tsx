@@ -6,6 +6,7 @@ import { trackPageView } from './lib/analytics';
 import { LanguageGate } from './user/LanguageGate';
 import { LoginGate } from './user/LoginGate';
 import { PushHost } from './user/PushHost';
+import { InstallHost } from './user/InstallHost';
 import { PostPromptHost } from './user/PostPromptHost';
 import { GenderGate } from './user/GenderGate';
 import { ScrollMemory } from './lib/ScrollMemory';
@@ -77,6 +78,7 @@ function AppBody() {
       <LanguageGate />
       <LoginGate />
       <PushHost />
+      <InstallHost />
       <PostPromptHost />
       <GenderGate />
       <ScrollMemory />

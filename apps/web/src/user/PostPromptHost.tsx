@@ -3,7 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useT } from '../lib/i18n';
 import { resolveCity } from '../lib/city';
 import { getRecentViews } from '../lib/recentView';
-import { track } from '../lib/analytics';
+import { track, trackPopup } from '../lib/analytics';
+import { claimSoftAsk } from '../lib/softAsk';
 
 // "Reverse posting" prompt: infer what a visitor wants from their browsing, then
 // invite them to post the complementary listing (browse jobs → post resume,
@@ -111,7 +112,9 @@ export function PostPromptHost() {
   useEffect(() => {
     if (!prompt || kbOpen || sessionStorage.getItem('wl_pp_shown')) return;
     sessionStorage.setItem('wl_pp_shown', '1');
+    claimSoftAsk();   // hold the one-soft-card-per-session slot (install yields to it)
     track('post_prompt_shown', { target: prompt.intent });
+    trackPopup('reverse', 'shown');
     const tm = setTimeout(() => setSlideIn(true), 30);   // trigger the slide-up
     return () => clearTimeout(tm);
   }, [prompt, kbOpen]);
@@ -120,10 +123,11 @@ export function PostPromptHost() {
   const cfg = INTENTS[prompt.intent];
   const vars = { city: prompt.city, q: prompt.q || '' };
   const close = () => { setSlideIn(false); const tm = setTimeout(() => setPrompt(null), 260); timers.current.push(tm); };
-  const dismiss = () => { setCd(prompt.intent, DISMISS_COOLDOWN); track('post_prompt_click', { target: 'dismiss_' + prompt.intent }); close(); };
+  const dismiss = () => { setCd(prompt.intent, DISMISS_COOLDOWN); track('post_prompt_click', { target: 'dismiss_' + prompt.intent }); trackPopup('reverse', 'dismissed'); close(); };
   const go = () => {
     setCd(prompt.intent, CONVERT_COOLDOWN);
     track('post_prompt_click', { target: prompt.intent });
+    trackPopup('reverse', 'accepted');
     close();
     nav(`/post?cat=${cfg.cat}${cfg.params}&pp=${prompt.intent}`);
   };

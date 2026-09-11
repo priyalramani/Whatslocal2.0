@@ -5,7 +5,8 @@ import { getListing, getListingBySlug, revealPhone, reportListing, searchListing
 import { ListingTile } from './ListingCard';
 import { listingPath, cityNameToSlug, KIND_TO_SLUG, setLastCity } from '../lib/city';
 import { CATEGORY_BY_LABEL } from '@whatslocal/types';
-import { track } from '../lib/analytics';
+import { track, trackPopup } from '../lib/analytics';
+import { maybeAskInstallSoon } from '../lib/install';
 import { verticalOf, setLastListing, getRecentViews } from '../lib/recentView';
 import { fmtTime } from './WeekHours';
 import { iconFor, categoryLabel, catLabel, catSlug, typeTag } from '../lib/listingMeta';
@@ -196,7 +197,7 @@ export function ListingDetail() {
 
   async function openContact(force = false) {
     setNote(null); setCopied(false);
-    if (!force && shouldAskJobGuard()) { setJobGuard(true); return; }
+    if (!force && shouldAskJobGuard()) { setJobGuard(true); trackPopup('jobguard', 'shown'); return; }
     if (phone) { setDrawer(true); return; }
     setBusy(true);
     try {
@@ -239,6 +240,9 @@ export function ListingDetail() {
   function pick(target: 'call' | 'whatsapp' | 'copy') {
     if (!phone) return;
     track('contact_click', { listing_id: lid, target });
+    // Value moment: they got a real contact. On a return visit, gently offer to
+    // install (~1.5s later, once/session, yields if another card already showed).
+    maybeAskInstallSoon('contact');
     if (target === 'call') window.location.href = `tel:${phone}`;
     else if (target === 'whatsapp') {
       window.open(`https://wa.me/91${waNum || phone}?text=${encodeURIComponent(waOpener())}`, '_blank', 'noopener');
@@ -323,12 +327,14 @@ export function ListingDetail() {
   // Job-guard outcomes: Yes → real openings; No → remember and reveal as normal.
   function guardYes() {
     track('contact_click', { listing_id: lid, target: 'jobguard_yes' });
+    trackPopup('jobguard', 'accepted');
     setJobGuard(false);
     nav(`/${citySlug}/browse/jobs/openings?note=hiring`);
   }
   function guardNo() {
     try { sessionStorage.setItem('wl_jobguard_off', '1'); } catch { /* ignore */ }
     track('contact_click', { listing_id: lid, target: 'jobguard_no' });
+    trackPopup('jobguard', 'dismissed');
     setJobGuard(false);
     openContact(true);
   }

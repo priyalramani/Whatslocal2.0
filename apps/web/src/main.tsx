@@ -4,6 +4,7 @@ import './index.css';
 import { App } from './App';
 import { setAnalyticsContext, trackPageView } from './lib/analytics';
 import { resolveCity } from './lib/city';
+import { initInstall } from './lib/install';
 
 // Set the city context BEFORE the first page_view so the landing visit is
 // tagged with its city — otherwise the "visitors today" badge (which counts
@@ -15,6 +16,14 @@ const startCity = resolveCity(firstSeg);
 setAnalyticsContext({ city: startCity.name, pincode: startCity.pincode });
 
 trackPageView();
+
+// PWA: capture the install prompt as early as possible + register the service
+// worker at load, so the app is installable (and SW-controlled) independent of
+// any push opt-in. Both are best-effort and never block render.
+initInstall();
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

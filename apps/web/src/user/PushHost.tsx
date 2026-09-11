@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useT } from '../lib/i18n';
 import { _setPushShow, subscribePush, noteAsked, noteDismissed } from '../lib/push';
+import { claimSoftAsk } from '../lib/softAsk';
+import { trackPopup } from '../lib/analytics';
 
 // Global host for the notification soft-ask card. Stays invisible until a page
 // calls maybeAskPush('post'|'search'). "Yes, notify me" fires the real browser
@@ -12,6 +14,8 @@ export function PushHost() {
   useEffect(() => {
     _setPushShow((r) => {
       noteAsked();
+      claimSoftAsk();   // hold the one-soft-card-per-session slot (install yields to it)
+      trackPopup('push', 'shown');
       // Drop focus so the mobile keyboard closes — otherwise this bottom card
       // hides behind it (it fires right after a search, keyboard still open).
       (document.activeElement as HTMLElement | null)?.blur?.();
@@ -31,11 +35,11 @@ export function PushHost() {
         <p className="text-sm text-slate-500 mt-1">{body}</p>
         <p className="text-[11px] text-slate-400 mt-1.5">{t('push.helper')}</p>
         <div className="flex gap-2 mt-3">
-          <button type="button" onClick={() => { noteDismissed(); setReason(null); }}
+          <button type="button" onClick={() => { trackPopup('push', 'dismissed'); noteDismissed(); setReason(null); }}
             className="flex-1 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium py-2.5 hover:bg-slate-50">
             {t('push.later')}
           </button>
-          <button type="button" onClick={() => { setReason(null); void subscribePush(); }}
+          <button type="button" onClick={() => { trackPopup('push', 'accepted'); setReason(null); void subscribePush(); }}
             className="flex-1 rounded-lg bg-brand text-white text-sm font-medium py-2.5 hover:bg-brand-dark">
             {t('push.yes')}
           </button>
