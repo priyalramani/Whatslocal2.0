@@ -97,6 +97,11 @@ export function AdminLayout() {
             <span className="truncate">{user?.username}</span>
             <button onClick={() => { logout(); nav('/admin/login', { replace: true }); }} className="hover:text-slate-800 shrink-0">Logout</button>
           </div>
+          {/* Build stamp — admin-only (this whole shell is admin). Tells you which
+              build is live: version · git sha · build time (IST). */}
+          <div className="text-[10px] text-slate-300 px-1 truncate" title={`Build ${__BUILD_SHA__} · ${__BUILD_TIME__}`}>
+            v{__APP_VERSION__} · {__BUILD_SHA__} · {__BUILD_TIME__}
+          </div>
         </div>
       </aside>
 
