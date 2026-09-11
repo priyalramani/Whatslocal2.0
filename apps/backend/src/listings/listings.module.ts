@@ -11,6 +11,7 @@ import { Visibility, VisibilitySchema } from './visibility.schema';
 import { TagsModule } from '../tags/tags.module';
 import { UtilityModule } from '../utility/utility.module';
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
+import { PushModule } from '../push/push.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { WhatsappModule } from '../whatsapp/whatsapp.module';
     TagsModule, // for TagsService (keyword name resolution)
     UtilityModule, // for PincodeService (cached pin → city/district/state)
     WhatsappModule, // for WhatsappService (WABA notify on approval)
+    PushModule, // for PushService (admin new-post approval alert)
   ],
   controllers: [ListingsController],
   providers: [ListingsService],

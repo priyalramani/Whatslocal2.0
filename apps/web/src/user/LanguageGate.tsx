@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useT, getStoredLang, type Lang } from '../lib/i18n';
+import { trackPopup } from '../lib/analytics';
 
 // Shown once on first visit (no language stored yet). Tapping a language APPLIES
 // it immediately — no second "Continue" tap. Changeable later from the header.
 export function LanguageGate() {
   const { setLang, t } = useT();
   const [open, setOpen] = useState(getStoredLang() === null);
+  useEffect(() => { if (open) trackPopup('language', 'shown'); }, [open]);
   if (!open) return null;
 
-  const pick = (v: Lang) => { setLang(v); setOpen(false); };
+  const pick = (v: Lang) => { trackPopup('language', 'accepted'); setLang(v); setOpen(false); };
 
   const Option = ({ value, label, sub }: { value: Lang; label: string; sub: string }) => (
     <button type="button" onClick={() => pick(value)}

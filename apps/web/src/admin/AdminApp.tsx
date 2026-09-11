@@ -17,6 +17,7 @@ import { AdminComplaints } from './AdminComplaints';
 import { AdminCabs } from './AdminCabs';
 import { AdminWhatsApp } from './AdminWhatsApp';
 import { AdminWhatsAppReport } from './AdminWhatsAppReport';
+import { AdminPopups } from './AdminPopups';
 
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   return currentUser()?.role === 'admin' ? <>{children}</> : <Navigate to="/admin/login" replace />;
@@ -52,6 +53,7 @@ export function AdminApp() {
         {/* Operations · Settings */}
         <Route path="sequence" element={<AdminSequence />} />
         <Route path="whatsapp" element={<AdminWhatsApp />} />
+        <Route path="popups" element={<AdminPopups />} />
         {/* Posting. Distinct keys so React REMOUNTS Post when moving between the
             edit page and a fresh /admin/post (e.g. a Re-file) — otherwise the
             instance is reused and the new form's seed + refile state don't apply. */}

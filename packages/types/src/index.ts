@@ -223,6 +223,7 @@ export type AnalyticsEventType =
   | 'featured_click'     // tapped a featured tile (e.g. JOBS)
   | 'post_prompt_shown'  // intent-based "post your listing" prompt was shown
   | 'post_prompt_click'  // acted on that prompt (target = intent, or 'dismiss_*')
+  | 'popup'              // any popup/gate lifecycle; target = '<popupId>:<shown|accepted|dismissed>'
   | 'post_start'
   | 'post_submit';
 

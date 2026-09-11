@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import type { PublicListing } from '@whatslocal/types';
 import { BRAND } from '../lib/brand';
-import { setAnalyticsContext, trackSearch } from '../lib/analytics';
+import { setAnalyticsContext, trackSearch, trackPopup } from '../lib/analytics';
 import { maybeAskPush } from '../lib/push';
 import { searchListings, visitorsToday, postingsCount, homeSections, pinLookup, type HomeSection } from '../lib/listings';
 import { resolveCity, setLastCity, cityNameToSlug, KIND_TO_SLUG } from '../lib/city';
@@ -47,6 +47,8 @@ function CitySwitcher({ onClose }: { onClose: () => void }) {
   // (autoFocus alone often doesn't raise the keyboard on mobile).
   const pinRef = useRef<HTMLInputElement>(null);
   useEffect(() => { const tm = setTimeout(() => pinRef.current?.focus(), 80); return () => clearTimeout(tm); }, []);
+  useEffect(() => { trackPopup('pincode', 'shown'); }, []);
+  const close = () => { trackPopup('pincode', 'dismissed'); onClose(); };
 
   async function go(value?: string) {
     const p = String(value ?? pin).replace(/\D/g, '');
@@ -57,6 +59,7 @@ function CitySwitcher({ onClose }: { onClose: () => void }) {
       const r = await pinLookup(p);
       const slug = cityNameToSlug(r.city);
       setLastCity({ slug, name: r.city, pincode: p });   // remember + set as last city
+      trackPopup('pincode', 'accepted');
       onClose();
       nav(`/${slug}`);
     } catch {
@@ -65,9 +68,9 @@ function CitySwitcher({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={close}>
       <div className="relative w-full max-w-[360px] rounded-2xl bg-white px-6 py-7 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} aria-label="Close"
+        <button onClick={close} aria-label="Close"
           className="absolute top-3 right-3 h-8 w-8 rounded-full text-slate-400 hover:bg-slate-100 flex items-center justify-center text-lg">✕</button>
         <div className="text-center mb-5">
           <div className="text-lg font-semibold text-slate-800">{t('city.switch.title')}</div>

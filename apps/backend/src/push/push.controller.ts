@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Headers, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { PushService } from './push.service';
 import { AuthService } from '../auth/auth.service';
+import { AdminGuard } from '../auth/guards';
 
 @Controller()
 export class PushController {
@@ -27,12 +28,17 @@ export class PushController {
     @Headers('user-agent') ua: string,
   ) {
     let userId: string | null = null;
+    let role = '';
     if (authz?.startsWith('Bearer ')) {
-      try { userId = (await this.auth.verify(authz.slice(7))).id; } catch { /* anon */ }
+      // Role is read from the VERIFIED token, never the body — so only a genuine
+      // admin session can register a device as an admin push target.
+      try { const u = await this.auth.verify(authz.slice(7)); userId = u.id; role = u.role || ''; } catch { /* anon */ }
     }
     return this.push.subscribe(body?.subscription, {
       visitor_id: body?.visitor_id,
       user_id: userId,
+      admin: role === 'admin',
+      role,
       city: body?.city,
       ua: ua || '',
     });
@@ -42,6 +48,16 @@ export class PushController {
   @HttpCode(200)
   async unsubscribe(@Body() body: { endpoint?: string }) {
     return this.push.unsubscribe(body?.endpoint || '');
+  }
+
+  // Admin "Test notification" — sends a test push to the calling admin's own
+  // device(s). Admin-guarded; the /admin/ prefix also makes the web client send
+  // the admin token. Returns how many devices it reached.
+  @Post('admin/push/test')
+  @UseGuards(AdminGuard)
+  @HttpCode(200)
+  async test(@Req() req: any) {
+    return this.push.sendTestToUser(req.user?.id || '');
   }
 
   // Called after login: link this visitor's device subscriptions to the user.

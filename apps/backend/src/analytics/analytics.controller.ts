@@ -143,4 +143,12 @@ export class AnalyticsController {
   async postAnalytics() {
     return this.analytics.postAnalytics();
   }
+
+  // Popup / gate analytics — shown / accepted / dismissed per popup (admin
+  // Pop-ups → Analytics). Optional from/to (YYYY-MM-DD) date range.
+  @Get('analytics/popups')
+  @UseGuards(AdminGuard)
+  async popupAnalytics(@Query('from') from?: string, @Query('to') to?: string) {
+    return this.analytics.popupAnalytics(from, to);
+  }
 }

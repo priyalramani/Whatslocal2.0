@@ -9,6 +9,7 @@ import {
   defaultHomeSequence, slugifyTitle, type PostType,
 } from '@whatslocal/types';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { PushService } from '../push/push.service';
 import { Listing, ListingDocument } from './listing.schema';
 import { Reveal, RevealDocument } from './reveal.schema';
 import { Report, ReportDocument } from './report.schema';
@@ -416,6 +417,7 @@ export class ListingsService implements OnModuleInit {
     private readonly auth: AuthService,
     private readonly pins: PincodeService,
     private readonly whatsapp: WhatsappService,
+    private readonly push: PushService,
     @InjectConnection() private readonly conn: Connection,
   ) {}
 
@@ -925,6 +927,17 @@ export class ListingsService implements OnModuleInit {
     }
     // Admin posts publish immediately → warm the share card now.
     if (doc.status === 'approved') this.warmOgCard(String(doc._id));
+    // A user post awaits approval → ping every logged-in admin device (fire-and-
+    // forget; never blocks the post). Admin posts are auto-approved → skip.
+    if (doc.status === 'pending') {
+      const kindLabel = ({ business: 'Business', job_opening: 'Job opening', job_seeker: 'Job seeker', happening: 'Happening' } as Record<string, string>)[String(doc.kind || '')] || 'post';
+      const where = [payload.category, payload.city].filter(Boolean).join(' · ');
+      void this.push.sendToAdmins({
+        title: 'New post awaiting approval',
+        body: `${maskTitle(dto.title, !!dto.hide_title) || 'Untitled'} — ${kindLabel}${where ? ` · ${where}` : ''}`,
+        url: '/admin/approvals',
+      }).catch(() => { /* push is best-effort */ });
+    }
     return { _id: String(doc._id), status: doc.status };
   }
 

@@ -11,6 +11,11 @@ export class PushSubscription {
   @Prop({ type: Object, default: {} }) keys: { p256dh?: string; auth?: string };
   @Prop({ default: '', index: true }) visitor_id: string;
   @Prop({ type: String, default: null, index: true }) user_id: string | null;
+  // True only when this device subscribed while authenticated as an ADMIN (role
+  // verified server-side). The new-post alert targets ONLY these. Cleared/removed
+  // on logout so a logged-out device never receives admin pushes.
+  @Prop({ default: false, index: true }) admin: boolean;
+  @Prop({ default: '' }) role: string;
   @Prop({ default: '' }) city: string;
   @Prop({ default: '' }) ua: string;
 }

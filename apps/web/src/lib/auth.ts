@@ -1,4 +1,5 @@
 import { api, setAdminToken, getAdminToken } from './api';
+import { unsubscribeAdminPush } from './push';
 
 export interface AuthUser { id: string; username: string; role: string; name: string }
 
@@ -15,6 +16,9 @@ export async function login(username: string, password: string): Promise<AuthUse
 }
 
 export function logout() {
+  // Stop admin push alerts on THIS device first, so a logged-out phone never
+  // receives new-post notifications (fire-and-forget; doesn't need the token).
+  void unsubscribeAdminPush();
   setAdminToken(null);
   localStorage.removeItem(USER_KEY);
 }

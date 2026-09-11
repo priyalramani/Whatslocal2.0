@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useT, getStoredLang } from '../lib/i18n';
 import { getGender, saveGender } from '../lib/profile';
+import { trackPopup } from '../lib/analytics';
 
 // Compulsory one-time gender prompt. ~12s after the app loads it appears for
 // anyone whose gender we don't know — logged in OR anonymous (it saves against
@@ -35,6 +36,7 @@ export function GenderGate() {
         if (r.gender) { settled.current = true; return; }   // already known → never ask
         settled.current = true;
         setShow(true);
+        trackPopup('gender', 'shown');
       } catch {
         timer = setTimeout(attempt, 8000);   // network hiccup → retry
       }
@@ -46,7 +48,7 @@ export function GenderGate() {
   async function save() {
     if (!choice || busy) return;
     setBusy(true);
-    try { await saveGender(choice); setShow(false); }
+    try { await saveGender(choice); trackPopup('gender', 'accepted'); setShow(false); }
     catch { /* keep it open so they can retry */ }
     finally { setBusy(false); }
   }

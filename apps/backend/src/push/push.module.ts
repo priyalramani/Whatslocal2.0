@@ -3,11 +3,15 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { PushController } from './push.controller';
 import { PushService } from './push.service';
 import { PushSubscription, PushSubscriptionSchema } from './push.schema';
+import { User, UserSchema } from '../users/user.schema';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: PushSubscription.name, schema: PushSubscriptionSchema }]),
+    MongooseModule.forFeature([
+      { name: PushSubscription.name, schema: PushSubscriptionSchema },
+      { name: User.name, schema: UserSchema },
+    ]),
     AuthModule,
   ],
   controllers: [PushController],

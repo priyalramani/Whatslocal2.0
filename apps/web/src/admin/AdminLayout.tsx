@@ -6,6 +6,7 @@ import { pendingCount, adminReports } from '../lib/listings';
 import { complaintsPendingCount } from '../lib/complaints';
 import { LoginLimits } from './LoginLimits';
 import { ContactSettings } from './ContactSettings';
+import { AdminAlertsToggle } from './AdminAlertsToggle';
 
 // BT/RG-style admin shell: a left sidebar (Dashboard + grouped Operations) with
 // a content <Outlet>. Pages render only their own <main> — the frame lives here.
@@ -82,6 +83,7 @@ export function AdminLayout() {
           <div className="px-3 pt-3 pb-0.5 text-[11px] text-slate-400">Settings</div>
           <NavLink to="/admin/sequence" className={itemCls}>Category Setting</NavLink>
           <NavLink to="/admin/whatsapp" className={itemCls}>WhatsApp Test</NavLink>
+          <NavLink to="/admin/popups" className={itemCls}>Pop-ups</NavLink>
           <button type="button" onClick={() => setLimits(true)}
             className="w-full flex items-center px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100">Login Limits</button>
           <button type="button" onClick={() => setContact(true)}
@@ -89,6 +91,7 @@ export function AdminLayout() {
         </nav>
 
         <div className="p-3 border-t border-slate-200 space-y-2">
+          <AdminAlertsToggle />
           <NavLink to="/admin/post" className="block text-center rounded-lg bg-brand text-white py-2 text-sm font-medium hover:bg-brand-dark">＋ New Post</NavLink>
           <div className="flex items-center justify-between text-xs text-slate-500 px-1">
             <span className="truncate">{user?.username}</span>

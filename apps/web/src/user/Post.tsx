@@ -12,7 +12,7 @@ import { postTypeToKind } from '@whatslocal/types';
 import { maybeAskPush } from '../lib/push';
 import { currentSession, userLogout, requestOtp, loginWithOtp, verifyNumber } from '../lib/userAuth';
 import { isAdmin } from '../lib/auth';
-import { track } from '../lib/analytics';
+import { track, trackPopup } from '../lib/analytics';
 import { SearchKeywords } from './SearchKeywords';
 import { WeekHours } from './WeekHours';
 import { OtpLogin } from './OtpLogin';
@@ -493,7 +493,7 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
     if (dupDismissedRef.current === key) return;
     try {
       const r = await checkDuplicate(m, postTypeToKind(postType), isEdit ? editId : undefined, admin);
-      if (r.results?.length) setDup(r.results);
+      if (r.results?.length) { setDup(r.results); trackPopup('duplicate', 'shown'); }
     } catch { /* never block posting on the dup check */ }
   }
 
@@ -1274,11 +1274,11 @@ export function Post({ admin: adminProp = false }: { admin?: boolean }) {
               ))}
             </ul>
             <div className="flex gap-2 mt-5">
-              <button type="button" onClick={() => dup.forEach((d) => window.open(editUrl(d.id), '_blank', 'noopener'))}
+              <button type="button" onClick={() => { trackPopup('duplicate', 'accepted'); dup.forEach((d) => window.open(editUrl(d.id), '_blank', 'noopener')); }}
                 className="flex-1 rounded-lg border border-brand text-brand text-sm font-medium py-2 hover:bg-brand/5">
                 {dup.length > 1 ? t('post.dup.openAll', { n: dup.length }) : t('post.dup.openOne')}
               </button>
-              <button type="button" onClick={() => { dupDismissedRef.current = `${norm(f.mobile)}|${postType}`; setDup(null); }}
+              <button type="button" onClick={() => { trackPopup('duplicate', 'dismissed'); dupDismissedRef.current = `${norm(f.mobile)}|${postType}`; setDup(null); }}
                 className="flex-1 rounded-lg bg-brand text-white text-sm font-medium py-2 hover:bg-brand-dark">
                 {t('post.dup.continue')}
               </button>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { BRAND } from '../lib/brand';
 import { requestOtp, loginWithOtp } from '../lib/userAuth';
 import { msg91Configured } from '../lib/msg91';
+import { trackPopup } from '../lib/analytics';
 import { useT } from '../lib/i18n';
 
 // Mobile + OTP login for general users. (OTP is 1234 for now.)
@@ -23,6 +24,8 @@ export function OtpLogin({ onSuccess, title, onClose }: {
   // often doesn't raise the keyboard on mobile.
   const mobRef = useRef<HTMLInputElement>(null);
   useEffect(() => { const t = setTimeout(() => mobRef.current?.focus(), 80); return () => clearTimeout(t); }, []);
+  useEffect(() => { trackPopup('login', 'shown'); }, []);
+  const close = () => { trackPopup('login', 'dismissed'); onClose?.(); };
 
   async function send() {
     setErr('');
@@ -33,7 +36,7 @@ export function OtpLogin({ onSuccess, title, onClose }: {
   }
   async function verify() {
     setErr(''); setBusy(true);
-    try { await loginWithOtp(mobile, otp); onSuccess(); }
+    try { await loginWithOtp(mobile, otp); trackPopup('login', 'accepted'); onSuccess(); }
     catch (e: any) { setErr(e?.message || t('login.invalidOtp')); }
     finally { setBusy(false); }
   }
@@ -84,10 +87,10 @@ export function OtpLogin({ onSuccess, title, onClose }: {
   // otherwise a compulsory popup — no close, only login gets past it.
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
-      onClick={onClose ? onClose : undefined}>
+      onClick={onClose ? close : undefined}>
       <div className="relative w-full max-w-[400px] rounded-2xl bg-white px-7 py-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         {onClose && (
-          <button onClick={onClose} aria-label="Close"
+          <button onClick={close} aria-label="Close"
             className="absolute top-3 right-3 h-8 w-8 rounded-full text-slate-400 hover:bg-slate-100 flex items-center justify-center text-lg">✕</button>
         )}
         {body}

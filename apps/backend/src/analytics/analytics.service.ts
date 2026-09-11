@@ -554,6 +554,31 @@ export class AnalyticsService {
   // Channel is part of the key on purpose — call and WhatsApp on the same post
   // are two different attempts to reach someone, and the chart splits by channel
   // so collapsing them would make the colours lie.
+  // Popup / gate analytics: shown / accepted / dismissed per popup, from the
+  // 'popup' events (target = '<popup>:<action>'). Optional YYYY-MM-DD range (IST).
+  async popupAnalytics(
+    from?: string, to?: string,
+  ): Promise<Record<string, { shown: number; accepted: number; dismissed: number }>> {
+    const match: any = { type: 'popup', target: { $ne: null } };
+    if (from || to) {
+      match.ts = {};
+      if (from) match.ts.$gte = new Date(`${from}T00:00:00+05:30`);
+      if (to) match.ts.$lte = new Date(`${to}T23:59:59+05:30`);
+    }
+    const rows: any[] = await this.model.aggregate([
+      { $match: match },
+      { $group: { _id: '$target', n: { $sum: 1 } } },
+    ]);
+    const out: Record<string, { shown: number; accepted: number; dismissed: number }> = {};
+    for (const r of rows) {
+      const [popup, action] = String(r._id).split(':');
+      if (!popup || !action) continue;
+      if (!out[popup]) out[popup] = { shown: 0, accepted: 0, dismissed: 0 };
+      if (action === 'shown' || action === 'accepted' || action === 'dismissed') out[popup][action] += r.n;
+    }
+    return out;
+  }
+
   async contactReport(from: Date, to: Date): Promise<any> {
     const TZ = 'Asia/Kolkata';
     const dayOf = { $dateToString: { format: '%Y-%m-%d', date: '$ts', timezone: TZ } };

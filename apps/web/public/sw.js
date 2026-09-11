@@ -23,6 +23,11 @@ self.addEventListener('push', (event) => {
     icon: data.icon || '/logo.svg',
     badge: data.badge || '/favicon.svg',
     tag: data.tag || undefined,
+    // requireInteraction keeps admin alerts on screen until acted on; renotify
+    // re-alerts (sound/vibrate) even when a tag repeats, so none are silently
+    // swallowed by Android/Chrome's collapse behaviour.
+    requireInteraction: !!data.requireInteraction,
+    renotify: !!data.renotify,
     data: { url: data.url || '/' },
   };
   event.waitUntil(self.registration.showNotification(title, options));

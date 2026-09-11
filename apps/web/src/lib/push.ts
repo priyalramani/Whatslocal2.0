@@ -2,7 +2,7 @@
 // later. The golden rule: NEVER cold-ask — we show our own soft-ask card first
 // (PushHost) and only fire the real browser prompt (`subscribePush`) on "Yes".
 import { getVisitorId } from './analytics';
-import { getUserToken } from './api';
+import { getUserToken, getAdminToken } from './api';
 
 const KEY = 'wl_push';
 interface PushState { subscribed?: boolean; dismissed?: number; lastAskAt?: number }
@@ -92,6 +92,78 @@ export async function linkPushUser(): Promise<void> {
       body: JSON.stringify({ visitor_id: getVisitorId() }),
     });
   } catch { /* ignore */ }
+}
+
+// ================= Admin "new post for approval" alerts =====================
+// A device only becomes an admin push target while an ADMIN session is active on
+// it (the subscribe carries the admin token; the server verifies the role). On
+// logout we drop this device's subscription so it stops receiving. Two phones
+// each subscribe → each gets pushed. `wl_admin_push` remembers the endpoint so
+// logout can drop precisely the right row.
+const ADMIN_KEY = 'wl_admin_push';
+const readAdmin = (): { endpoint?: string } => { try { return JSON.parse(localStorage.getItem(ADMIN_KEY) || '{}'); } catch { return {}; } };
+
+// On for this device? (subscribed here AND the browser still grants permission).
+export function adminPushOn(): boolean {
+  try { return !!readAdmin().endpoint && typeof Notification !== 'undefined' && Notification.permission === 'granted'; }
+  catch { return false; }
+}
+
+// Turn ON admin alerts for THIS device. Must be called from a user gesture (it
+// fires the browser permission prompt). Requires an admin session.
+export async function subscribeAdminPush(): Promise<boolean> {
+  try {
+    if (!pushSupported()) return false;
+    const token = getAdminToken();
+    if (!token) return false; // only a live admin session can register as admin
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return false;
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+    const vapid = await fetch('/api/v1/push/vapid-key').then((r) => r.json()).then((j) => j?.key).catch(() => null);
+    if (!vapid) return false;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(vapid) });
+    await fetch('/api/v1/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ subscription: sub.toJSON(), visitor_id: getVisitorId() }),
+    });
+    try { localStorage.setItem(ADMIN_KEY, JSON.stringify({ endpoint: sub.endpoint })); } catch { /* ignore */ }
+    return true;
+  } catch { return false; }
+}
+
+// Turn OFF admin alerts for THIS device (also called on admin logout). Drops the
+// server row for this device's endpoint so it no longer receives admin pushes.
+// Leaves the browser-level subscription intact (any user-push use survives).
+export async function unsubscribeAdminPush(): Promise<void> {
+  let endpoint = readAdmin().endpoint || '';
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg && (await reg.pushManager.getSubscription());
+    if (sub?.endpoint) endpoint = sub.endpoint;   // the live endpoint the server has
+  } catch { /* ignore */ }
+  if (endpoint) {
+    try {
+      await fetch('/api/v1/push/unsubscribe', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint }),
+      });
+    } catch { /* best-effort */ }
+  }
+  try { localStorage.removeItem(ADMIN_KEY); } catch { /* ignore */ }
+}
+
+// Fire a TEST notification to this admin's own device(s). Returns how many were
+// reached (0 = not subscribed here / not an admin session).
+export async function sendAdminTestPush(): Promise<number> {
+  try {
+    const token = getAdminToken();
+    if (!token) return 0;
+    const r = await fetch('/api/v1/admin/push/test', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+    const j = await r.json().catch(() => ({}));
+    return Number(j?.sent) || 0;
+  } catch { return 0; }
 }
 
 // ---- soft-ask trigger bus: pages call maybeAskPush(); PushHost renders the card.

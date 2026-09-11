@@ -102,3 +102,10 @@ export const trackSearch = (query: string, result_count: number) => {
   }
 };
 export const trackFeaturedClick = (target: string) => track('featured_click', { target });
+
+// Popup / gate lifecycle. `popup` is the popup id (e.g. 'gender', 'push',
+// 'login'); `action` is 'shown' | 'accepted' | 'dismissed'. Powers the admin
+// Pop-ups → Analytics section. Encoded in `target` as '<popup>:<action>'.
+export type PopupAction = 'shown' | 'accepted' | 'dismissed';
+export const trackPopup = (popup: string, action: PopupAction) =>
+  track('popup', { target: `${popup}:${action}` });

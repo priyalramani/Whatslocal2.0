@@ -126,6 +126,15 @@ export const registeredUsers = () =>
 export const postAnalytics = () =>
   api<{ results: any[] }>('/analytics/posts');
 
+// Popup / gate analytics — { popupId: { shown, accepted, dismissed } }.
+export type PopupStats = Record<string, { shown: number; accepted: number; dismissed: number }>;
+export const popupAnalytics = (from?: string, to?: string) => {
+  const p = new URLSearchParams();
+  if (from) p.set('from', from);
+  if (to) p.set('to', to);
+  return api<PopupStats>(`/analytics/popups${p.toString() ? `?${p}` : ''}`);
+};
+
 // Duplicate-posting check as the poster types the contact number. Uses whichever
 // JWT is present (admin token when posting from the admin panel, else the user
 // token) so it works in both contexts; the server scopes results to the caller.
