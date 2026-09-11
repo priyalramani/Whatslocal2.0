@@ -167,6 +167,20 @@ export class WhatsappService {
     }
     if (!res.ok) {
       const msg = parsed?.error?.message || parsed?.message || rawText.slice(0, 300);
+      // Record the FAILED attempt too (best-effort) — otherwise a rejected send
+      // (e.g. "Insufficient credits") leaves no trace and the report looks like
+      // nothing happened. Status 'failed' + the provider's error text.
+      if (input.logMeta) {
+        try {
+          await this.messages.create({
+            direction: 'out', number: to, name: input.logMeta.name || '',
+            event: input.logMeta.event, template: input.template, lang: input.languageCode || 'en',
+            body: input.logMeta.body, buttons: input.logMeta.buttons || [], wa_id: '',
+            listing_id: input.logMeta.listingId || null,
+            status: 'failed', failed_at: new Date(), error: String(msg).slice(0, 300),
+          });
+        } catch { /* never let logging mask the real error */ }
+      }
       throw new BadRequestException(`WhatsApp provider error (HTTP ${res.status}): ${msg}`);
     }
 

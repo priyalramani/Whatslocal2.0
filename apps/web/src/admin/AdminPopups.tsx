@@ -190,30 +190,19 @@ const ROWS: Row[] = [
   },
 ];
 
-function Tile({ label, val, sub, cls }: { label: string; val: number; sub?: string; cls?: string }) {
-  return (
-    <div className="bg-slate-50 rounded-lg px-3 py-2">
-      <div className="text-xs text-slate-500">{label}</div>
-      <div className={`text-xl font-semibold ${cls || 'text-slate-800'}`}>{val.toLocaleString('en-IN')}{sub && <span className="text-xs font-normal text-slate-400 ml-1">{sub}</span>}</div>
-    </div>
-  );
-}
+const pctOf = (n: number, shown: number) => (shown > 0 ? Math.round((n / shown) * 100) : 0);
 
 export function AdminPopups() {
   const [stats, setStats] = useState<PopupStats | null>(null);
   const [err, setErr] = useState('');
-  const [sel, setSel] = useState<string>(ROWS[0].id);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  // Two sections: Reports (all popups, default) + Details & conditions.
+  const [tab, setTab] = useState<'reports' | 'details'>('reports');
 
   useEffect(() => {
     popupAnalytics(from || undefined, to || undefined).then(setStats).catch((e) => setErr(e?.message || 'Failed to load analytics'));
   }, [from, to]);
-
-  const s = stats?.[sel] || { shown: 0, accepted: 0, dismissed: 0 };
-  const pct = (n: number) => (s.shown > 0 ? Math.round((n / s.shown) * 100) : 0);
-  const ignored = Math.max(0, s.shown - s.accepted - s.dismissed);
-  const selName = ROWS.find((r) => r.id === sel)?.name || sel;
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -221,67 +210,94 @@ export function AdminPopups() {
         <Link to="/admin" className="text-sm text-brand hover:underline">← Dashboard</Link>
         <h1 className="text-lg font-semibold text-slate-800 mt-2 mb-1">Pop-ups</h1>
         <p className="text-sm text-slate-500 mb-4 max-w-2xl">
-          Every popup, prompt and gate the visitor app can show — what makes each one appear, whether it can be
-          skipped, a preview, and how people respond to it.
+          How every popup, prompt and gate performs — and, under Details, what makes each one appear and whether it can be skipped.
         </p>
 
-        {/* Analytics — pick a popup, see how it performs */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 mb-5">
-          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-slate-800">Analytics</span>
-              <select value={sel} onChange={(e) => setSel(e.target.value)}
-                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm bg-white">
-                {ROWS.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-              </select>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-600" />
-              <span className="text-slate-400 text-xs">→</span>
-              <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-600" />
-              {(from || to) && <button onClick={() => { setFrom(''); setTo(''); }} className="text-xs text-slate-400 hover:text-slate-600 px-1">clear</button>}
-            </div>
-          </div>
-          {err && <div className="bg-red-50 text-red-700 text-sm rounded-lg px-3 py-2 mb-2">{err}</div>}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <Tile label="Shown" val={s.shown} />
-            <Tile label="Accepted" val={s.accepted} sub={`${pct(s.accepted)}%`} cls="text-emerald-600" />
-            <Tile label="Dismissed" val={s.dismissed} sub={`${pct(s.dismissed)}%`} cls="text-rose-600" />
-            <Tile label="Ignored" val={ignored} sub={`${pct(ignored)}%`} cls="text-slate-500" />
-          </div>
-          <p className="text-[12px] text-slate-400 mt-2 leading-relaxed">
-            <b className="text-slate-500">{selName}</b> — of {s.shown.toLocaleString('en-IN')} shown, {s.accepted.toLocaleString('en-IN')} accepted ({pct(s.accepted)}%){s.dismissed ? `, ${s.dismissed.toLocaleString('en-IN')} dismissed (${pct(s.dismissed)}%)` : ''}.
-            {' '}“Ignored” = shown but neither accepted nor dismissed (reloaded, tapped outside, or left). Counts are per event since tracking went live{from || to ? ', within the chosen dates' : ''}.
-          </p>
-        </div>
-
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[13px] rounded-lg px-3 py-2 mb-5">
-          Note: the <b>Install app</b> popup is live (see the Install row below) — it nudges returning visitors to
-          add WhatsLocal to their home screen. There is still no "update available", cookie banner, or rating prompt.
-        </div>
-
-        <div className="space-y-3">
-          {ROWS.map((r) => (
-            <div key={r.id} className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col md:flex-row gap-4">
-              <div className="md:w-64 shrink-0"><Sample id={r.id} /></div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="font-semibold text-slate-800">{r.name}</span>
-                  <span className={`text-[10px] uppercase tracking-wide rounded-full px-2 py-0.5 ${r.tagCls}`}>{r.tag}</span>
-                </div>
-                <div className="text-[13px] text-slate-600 leading-relaxed"><b className="text-slate-700">When it shows:</b> {r.when}</div>
-                <div className="text-[13px] text-slate-600 leading-relaxed mt-1"><b className="text-slate-700">Skip / repeat:</b> {r.skip}</div>
-                {stats?.[r.id] && stats[r.id].shown > 0 && (
-                  <div className="text-[12px] text-slate-500 mt-1.5 flex gap-3 flex-wrap">
-                    <span><b className="text-slate-700">{stats[r.id].shown.toLocaleString('en-IN')}</b> shown</span>
-                    <span className="text-emerald-600"><b>{stats[r.id].accepted.toLocaleString('en-IN')}</b> accepted</span>
-                    <span className="text-rose-600"><b>{stats[r.id].dismissed.toLocaleString('en-IN')}</b> dismissed</span>
-                  </div>
-                )}
-              </div>
-            </div>
+        {/* Section tabs — Reports is the default landing view. */}
+        <div className="flex gap-1 mb-5 border-b border-slate-200">
+          {([['reports', 'Reports'], ['details', 'Details & conditions']] as const).map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setTab(k)}
+              className={`px-3.5 py-2 text-sm font-medium -mb-px border-b-2 ${tab === k ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+              {label}
+            </button>
           ))}
         </div>
+
+        {tab === 'reports' ? (
+          <>
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+              <div className="text-sm text-slate-500">Shown / accepted / dismissed per popup. “Ignored” = shown but neither.</div>
+              <div className="flex items-center gap-1.5">
+                <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-600" />
+                <span className="text-slate-400 text-xs">→</span>
+                <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-600" />
+                {(from || to) && <button onClick={() => { setFrom(''); setTo(''); }} className="text-xs text-slate-400 hover:text-slate-600 px-1">clear</button>}
+              </div>
+            </div>
+            {err && <div className="bg-red-50 text-red-700 text-sm rounded-lg px-3 py-2 mb-2">{err}</div>}
+            <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-slate-500 text-left">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Pop-up</th>
+                    <th className="px-3 py-2 font-medium text-right">Shown</th>
+                    <th className="px-3 py-2 font-medium text-right">Accepted</th>
+                    <th className="px-3 py-2 font-medium text-right">Dismissed</th>
+                    <th className="px-3 py-2 font-medium text-right">Ignored</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {ROWS.map((r) => {
+                    const s = stats?.[r.id] || { shown: 0, accepted: 0, dismissed: 0 };
+                    const ignored = Math.max(0, s.shown - s.accepted - s.dismissed);
+                    const cell = (n: number, cls: string) => (
+                      <td className={`px-3 py-2 text-right ${cls}`}>
+                        {n.toLocaleString('en-IN')}{s.shown ? <span className="text-slate-400 text-xs"> · {pctOf(n, s.shown)}%</span> : null}
+                      </td>
+                    );
+                    return (
+                      <tr key={r.id} className="hover:bg-slate-50">
+                        <td className="px-3 py-2">
+                          <span className="font-medium text-slate-800">{r.name}</span>
+                          <span className={`ml-2 text-[10px] uppercase tracking-wide rounded-full px-2 py-0.5 ${r.tagCls}`}>{r.tag}</span>
+                        </td>
+                        <td className="px-3 py-2 text-right text-slate-700 font-medium">{s.shown.toLocaleString('en-IN')}</td>
+                        {cell(s.accepted, 'text-emerald-600')}
+                        {cell(s.dismissed, 'text-rose-600')}
+                        {cell(ignored, 'text-slate-500')}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[12px] text-slate-400 mt-2 leading-relaxed">
+              “Ignored” = shown but neither accepted nor dismissed (reloaded, tapped outside, or left). Counts are per event since tracking went live{from || to ? ', within the chosen dates' : ''}. Popups not yet instrumented read 0.
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[13px] rounded-lg px-3 py-2 mb-5">
+              Note: the <b>Install app</b> popup is live — it nudges returning visitors to add WhatsLocal to their home
+              screen. There is still no "update available", cookie banner, or rating prompt.
+            </div>
+            <div className="space-y-3">
+              {ROWS.map((r) => (
+                <div key={r.id} className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col md:flex-row gap-4">
+                  <div className="md:w-64 shrink-0"><Sample id={r.id} /></div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-semibold text-slate-800">{r.name}</span>
+                      <span className={`text-[10px] uppercase tracking-wide rounded-full px-2 py-0.5 ${r.tagCls}`}>{r.tag}</span>
+                    </div>
+                    <div className="text-[13px] text-slate-600 leading-relaxed"><b className="text-slate-700">When it shows:</b> {r.when}</div>
+                    <div className="text-[13px] text-slate-600 leading-relaxed mt-1"><b className="text-slate-700">Skip / repeat:</b> {r.skip}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </main>
     </div>
   );
