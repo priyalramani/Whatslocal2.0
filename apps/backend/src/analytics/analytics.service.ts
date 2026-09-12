@@ -20,18 +20,34 @@ const VISITORS_PAGE = 50;
 // past events with user_id so this rolls up to their profile.
 const HI_VALUE = /propert|flat|house|plot|\bcar\b|bike|electron|computer|laptop|mobile|gold|jewel/i;
 const LO_VALUE = /\bjob|hir|labour|labor|maid|househelp|house help|grocery|kirana|daily/i;
-export function incomeSignal(opts: { os?: string; brand?: string; lang?: string; topLabel?: string }): { score: number; tier: 'High' | 'Mid' | 'Low' } {
+// One scoring factor + why. incomeSignal SUMS these; the visitor-detail page shows
+// them as a timestamped ledger, so the breakdown can never drift from the score —
+// both come from incomeFactors(). `key` lets the UI attach a "when" from events.
+export interface IncomeFactor { key: 'base' | 'device' | 'lang' | 'cat'; label: string; points: number }
+export function incomeFactors(opts: { os?: string; brand?: string; lang?: string; topLabel?: string }): IncomeFactor[] {
   const { os, brand, lang, topLabel } = opts;
-  let s = 35;
-  if (/iOS/i.test(os || '') || /Apple/i.test(brand || '')) s += 40;         // iPhone — strongest signal
-  else if (/Pixel|OnePlus|Nothing|iQOO/i.test(brand || '')) s += 18;        // Android flagship-ish
-  else if (/Samsung/i.test(brand || '')) s += 10;
-  else if (/Android/i.test(os || '')) s += 3;                               // budget-leaning Android
-  else s += 15;                                                             // desktop / other
-  if (lang === 'en') s += 18;                                               // English preference
-  if (topLabel && HI_VALUE.test(topLabel)) s += 8;
-  else if (topLabel && LO_VALUE.test(topLabel)) s -= 8;
-  s = Math.max(0, Math.min(100, s));
+  const f: IncomeFactor[] = [{ key: 'base', label: 'Landed on WhatsLocal', points: 25 }];
+  // Device (brand/OS). iPhone + Pixel are the premium tier; then mid-premium
+  // Android; Samsung mid; other Android budget; desktop/unknown a flat middle.
+  if (/iOS/i.test(os || '') || /Apple|Pixel/i.test(brand || '')) {
+    f.push({ key: 'device', label: /Pixel/i.test(brand || '') ? 'Google Pixel (premium)' : 'iPhone (premium)', points: 25 });
+  } else if (/OnePlus|Nothing|iQOO/i.test(brand || '')) {
+    f.push({ key: 'device', label: `${brand} (premium Android)`, points: 18 });
+  } else if (/Samsung/i.test(brand || '')) {
+    f.push({ key: 'device', label: 'Samsung', points: 10 });
+  } else if (/Android/i.test(os || '')) {
+    f.push({ key: 'device', label: `${brand ? brand + ' ' : ''}Android (budget)`, points: 3 });
+  } else {
+    f.push({ key: 'device', label: 'Desktop / other', points: 15 });
+  }
+  f.push({ key: 'lang', label: lang === 'en' ? 'Chose English' : 'Chose Hindi', points: lang === 'en' ? 18 : 0 });
+  if (topLabel && HI_VALUE.test(topLabel)) f.push({ key: 'cat', label: `Interest: ${topLabel} (high-value)`, points: 8 });
+  else if (topLabel && LO_VALUE.test(topLabel)) f.push({ key: 'cat', label: `Interest: ${topLabel} (low-value)`, points: -8 });
+  return f;
+}
+export function incomeSignal(opts: { os?: string; brand?: string; lang?: string; topLabel?: string }): { score: number; tier: 'High' | 'Mid' | 'Low' } {
+  const raw = incomeFactors(opts).reduce((a, f) => a + f.points, 0);
+  const s = Math.max(0, Math.min(100, raw));
   return { score: s, tier: s >= 65 ? 'High' : s >= 38 ? 'Mid' : 'Low' };
 }
 
@@ -910,8 +926,26 @@ export class AnalyticsService {
     // Affluence estimate from device + language + strongest interest.
     const topOs = sorted(osCount)[0]?.key;
     const topBrand = sorted(brandCount)[0]?.key;
-    const inc = incomeSignal({ os: topOs, brand: topBrand, lang: (lastLang === 'en' || langCount['en']) ? 'en' : 'hi', topLabel: topCats[0]?.label });
-    const income = { tier: inc.tier, score: inc.score, brand: topBrand || null, os: topOs || null };
+    const chosenLang = (lastLang === 'en' || langCount['en']) ? 'en' : 'hi';
+    const incArgs = { os: topOs, brand: topBrand, lang: chosenLang, topLabel: topCats[0]?.label };
+    const inc = incomeSignal(incArgs);
+    // Timestamped ledger of how the score was reached — computed live from this
+    // visitor's events (no stored score), so it always matches the current formula.
+    // base + device are stamped at the first event ("landed"); language at the
+    // first event in the chosen language; interest at the first listing view.
+    const firstTs = events[0]?.ts || null;
+    const langTs = (events.find((e: any) => e.lang === chosenLang) as any)?.ts || firstTs;
+    const catTs = (events.find((e: any) => e.type === 'listing_view') as any)?.ts || firstTs;
+    let run = 0;
+    const breakdown = incomeFactors(incArgs).map((f) => {
+      run += f.points;
+      return {
+        key: f.key, label: f.label, points: f.points,
+        total: Math.max(0, Math.min(100, run)),
+        at: f.key === 'lang' ? langTs : f.key === 'cat' ? catTs : firstTs,
+      };
+    });
+    const income = { tier: inc.tier, score: inc.score, brand: topBrand || null, os: topOs || null, breakdown };
     return {
       visitor_id: id,
       identified: !!userId,

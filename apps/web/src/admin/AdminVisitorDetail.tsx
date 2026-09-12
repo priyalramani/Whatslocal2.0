@@ -23,7 +23,7 @@ interface Detail {
   cities: string[];
   current_city: string | null;
   entry: { path: string; referrer: string; ts: string; listing_id: string | null; title: string | null; slug: string | null } | null;
-  income: { tier: 'High' | 'Mid' | 'Low'; score: number; brand: string | null; os: string | null };
+  income: { tier: 'High' | 'Mid' | 'Low'; score: number; brand: string | null; os: string | null; breakdown?: { key: string; label: string; points: number; total: number; at: string | null }[] };
   top_categories: { label: string; points: number }[];
   searches: { query: string; count: number; zero: boolean }[];
   actions: Action[];
@@ -165,6 +165,25 @@ export function AdminVisitorDetail() {
                 </ul>
               </Card>
             </div>
+
+            {/* How the income score was reached — live, timestamped ledger. */}
+            {d.income?.breakdown && d.income.breakdown.length > 0 && (
+              <Card title="Income score breakdown" sub={`how ${d.income.score} (${d.income.tier}) was reached`}>
+                <ol className="text-sm mt-1">
+                  {d.income.breakdown.map((b, i) => (
+                    <li key={i} className="flex items-center gap-3 py-1.5 border-b border-slate-50 last:border-0">
+                      <span className="text-slate-400 text-xs whitespace-nowrap w-32 shrink-0">{b.at ? fmt(b.at) : '—'}</span>
+                      <span className="text-slate-700 flex-1">{b.label}</span>
+                      <span className={`text-xs font-medium w-12 text-right ${b.points > 0 ? 'text-emerald-600' : b.points < 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                        {b.points > 0 ? `+${b.points}` : b.points}
+                      </span>
+                      <span className="text-slate-500 text-xs w-10 text-right font-mono">{b.total}</span>
+                    </li>
+                  ))}
+                </ol>
+                <div className="text-[11px] text-slate-400 mt-2">A proxy from device, language and interests — not identity. Recomputed live from events; no score is stored, so this always reflects the current formula.</div>
+              </Card>
+            )}
 
             {/* Full timeline */}
             <Card title="Activity timeline" sub="most recent first">
