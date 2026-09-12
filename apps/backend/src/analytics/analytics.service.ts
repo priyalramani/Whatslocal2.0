@@ -30,7 +30,7 @@ export function incomeFactors(opts: { os?: string; brand?: string; lang?: string
   // Device (brand/OS). iPhone + Pixel are the premium tier; then mid-premium
   // Android; Samsung mid; other Android budget; desktop/unknown a flat middle.
   if (/iOS/i.test(os || '') || /Apple|Pixel/i.test(brand || '')) {
-    f.push({ key: 'device', label: /Pixel/i.test(brand || '') ? 'Google Pixel (premium)' : 'iPhone (premium)', points: 25 });
+    f.push({ key: 'device', label: /Pixel/i.test(brand || '') ? 'Google Pixel (premium)' : 'iPhone (premium)', points: 35 });
   } else if (/OnePlus|Nothing|iQOO/i.test(brand || '')) {
     f.push({ key: 'device', label: `${brand} (premium Android)`, points: 18 });
   } else if (/Samsung/i.test(brand || '')) {

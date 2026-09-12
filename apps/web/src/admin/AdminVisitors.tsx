@@ -52,6 +52,16 @@ export function AdminVisitors() {
   const [identifiedOnly, setIdentifiedOnly] = useState(false);
   const [q, setQ] = useState('');
   const [err, setErr] = useState('');
+  // Income-score breakdown popup — fetched live from the visitor detail on click.
+  type BdRow = { key: string; label: string; points: number; total: number; at: string | null };
+  const [bd, setBd] = useState<{ score: number; tier: string; rows: BdRow[] | null } | null>(null);
+  async function openBreakdown(r: VisitorRow) {
+    setBd({ score: r.income_score, tier: r.income, rows: null });   // open with a spinner
+    try {
+      const d = await api<any>(`/analytics/visitors/${encodeURIComponent(r.id)}`);
+      setBd({ score: d?.income?.score ?? r.income_score, tier: d?.income?.tier ?? r.income, rows: d?.income?.breakdown || [] });
+    } catch { setBd((b) => (b ? { ...b, rows: [] } : b)); }
+  }
 
   useEffect(() => {
     setData(null); setErr('');
@@ -124,9 +134,11 @@ export function AdminVisitors() {
                     <td className="px-3 py-2 text-slate-600">{r.brand || '—'}</td>
                     <td className="px-3 py-2"><GenderPill g={r.gender} /></td>
                     <td className="px-3 py-2">
-                      <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${incomePill[r.income] || incomePill.Low}`}>
+                      <button type="button" onClick={() => openBreakdown(r)}
+                        title="See how this score was reached"
+                        className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium hover:ring-2 hover:ring-brand/30 cursor-pointer ${incomePill[r.income] || incomePill.Low}`}>
                         {r.income} · {r.income_score}
-                      </span>
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -145,6 +157,38 @@ export function AdminVisitors() {
             <span className="text-slate-500">Page {page} of {pages}</span>
             <button disabled={page >= pages} onClick={() => setPage((p) => p + 1)}
               className="rounded-lg border border-slate-300 px-3 py-1.5 disabled:opacity-40">Next →</button>
+          </div>
+        )}
+
+        {/* Income-score chronology popup (opened from an income pill). */}
+        {bd && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setBd(null)}>
+            <div className="w-full max-w-[460px] rounded-2xl bg-white shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-1">
+                <div className="font-semibold text-slate-800">Income score breakdown</div>
+                <button onClick={() => setBd(null)} aria-label="Close" className="text-slate-400 hover:text-slate-700 text-lg leading-none">✕</button>
+              </div>
+              <div className="text-[12.5px] text-slate-500 mb-3">
+                How <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${incomePill[bd.tier] || incomePill.Low}`}>{bd.tier} · {bd.score}</span> was reached — live estimate.
+              </div>
+              {bd.rows === null ? (
+                <div className="text-slate-400 text-sm py-6 text-center">Loading…</div>
+              ) : bd.rows.length === 0 ? (
+                <div className="text-slate-400 text-sm py-6 text-center">No breakdown available.</div>
+              ) : (
+                <ol className="text-sm">
+                  {bd.rows.map((b, i) => (
+                    <li key={i} className="flex items-center gap-3 py-1.5 border-b border-slate-50 last:border-0">
+                      <span className="text-slate-400 text-xs whitespace-nowrap w-28 shrink-0">{b.at ? fmt(b.at) : '—'}</span>
+                      <span className="text-slate-700 flex-1">{b.label}</span>
+                      <span className={`text-xs font-medium w-12 text-right ${b.points > 0 ? 'text-emerald-600' : b.points < 0 ? 'text-rose-600' : 'text-slate-400'}`}>{b.points > 0 ? `+${b.points}` : b.points}</span>
+                      <span className="text-slate-500 text-xs w-10 text-right font-mono">{b.total}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              <div className="text-[11px] text-slate-400 mt-2">A proxy from device, language and interests — not identity. Computed live from events; no score is stored.</div>
+            </div>
           </div>
         )}
       </main>
